@@ -1,35 +1,60 @@
 import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import { getServerSession } from "next-auth";
-import AzureADProvider from "next-auth/providers/azure-ad";
 
 const ALLOWED_EMAIL = "phonari@pacifichospitality.com";
+
+// Store last error for the debug endpoint
+let lastAuthError: { code: string; detail: string; time: string } | null = null;
+export function getLastAuthError() {
+  return lastAuthError;
+}
 
 export const authOptions: NextAuthOptions = {
   debug: true,
   logger: {
     error(code, metadata) {
-      console.error("NEXTAUTH_ERROR_FULL:", code, JSON.stringify(metadata, null, 2));
+      const detail = JSON.stringify(metadata, Object.getOwnPropertyNames(metadata), 2);
+      lastAuthError = { code: String(code), detail, time: new Date().toISOString() };
+      console.error("NEXTAUTH_FULL_ERROR:", code);
+      console.error("NEXTAUTH_FULL_ERROR_DETAIL:", detail.substring(0, 500));
+      console.error("NEXTAUTH_FULL_ERROR_DETAIL2:", detail.substring(500, 1000));
     },
     warn(code) {
       console.warn("NEXTAUTH_WARN:", code);
     },
     debug(code, metadata) {
-      console.log("NEXTAUTH_DEBUG:", code, JSON.stringify(metadata));
+      console.log("NEXTAUTH_DEBUG:", code);
     },
   },
   providers: [
-    AzureADProvider({
+    {
+      id: "azure-ad",
+      name: "Microsoft",
+      type: "oauth",
+      wellKnown: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration`,
       clientId: process.env.AZURE_CLIENT_ID!,
       clientSecret: process.env.AZURE_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_TENANT_ID!,
+      // Only use state check — nonce and PKCE cause cookie issues on serverless
+      checks: ["state"],
+      idToken: true,
       authorization: {
         params: {
           scope:
             "openid profile email Mail.Read Mail.ReadWrite offline_access User.Read",
         },
       },
-    }),
+      profile(profile) {
+        return {
+          id: profile.sub || profile.oid,
+          name: profile.name || profile.preferred_username,
+          email:
+            profile.email ||
+            profile.preferred_username ||
+            profile.upn,
+        };
+      },
+    },
   ],
   callbacks: {
     async signIn({ user, profile }) {
@@ -37,6 +62,7 @@ export const authOptions: NextAuthOptions = {
         user.email?.toLowerCase() ||
         (profile as any)?.preferred_username?.toLowerCase() ||
         (profile as any)?.upn?.toLowerCase();
+      console.log("SIGNIN_CALLBACK email:", email);
       return email === ALLOWED_EMAIL;
     },
     async jwt({ token, account, profile }) {
