@@ -7,6 +7,17 @@ const ALLOWED_EMAIL = "phonari@pacifichospitality.com";
 
 export const authOptions: NextAuthOptions = {
   debug: true,
+  logger: {
+    error(code, metadata) {
+      console.error("NEXTAUTH_ERROR_FULL:", code, JSON.stringify(metadata, null, 2));
+    },
+    warn(code) {
+      console.warn("NEXTAUTH_WARN:", code);
+    },
+    debug(code, metadata) {
+      console.log("NEXTAUTH_DEBUG:", code, JSON.stringify(metadata));
+    },
+  },
   providers: [
     AzureADProvider({
       clientId: process.env.AZURE_CLIENT_ID!,
