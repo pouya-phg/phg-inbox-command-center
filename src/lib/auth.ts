@@ -1,54 +1,52 @@
 import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import { getServerSession } from "next-auth";
+import AzureADProvider from "next-auth/providers/azure-ad";
 
 const ALLOWED_EMAIL = "phonari@pacifichospitality.com";
 
 export const authOptions: NextAuthOptions = {
-  debug: process.env.NODE_ENV === "development",
+  debug: true,
   providers: [
-    {
-      id: "azure-ad",
-      name: "Microsoft",
-      type: "oauth",
-      wellKnown: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration`,
+    AzureADProvider({
       clientId: process.env.AZURE_CLIENT_ID!,
       clientSecret: process.env.AZURE_CLIENT_SECRET!,
-      idToken: true,
-      checks: ["pkce", "state"],
+      tenantId: process.env.AZURE_TENANT_ID!,
       authorization: {
         params: {
           scope:
             "openid profile email Mail.Read Mail.ReadWrite offline_access User.Read",
-          prompt: "consent",
         },
       },
-      profile(profile) {
-        return {
-          id: profile.sub || profile.oid,
-          name: profile.name || profile.preferred_username,
-          email:
-            profile.email ||
-            profile.preferred_username ||
-            profile.upn,
-        };
-      },
-    },
+    }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      return user.email?.toLowerCase() === ALLOWED_EMAIL;
+    async signIn({ user, profile }) {
+      const email =
+        user.email?.toLowerCase() ||
+        (profile as any)?.preferred_username?.toLowerCase() ||
+        (profile as any)?.upn?.toLowerCase();
+      return email === ALLOWED_EMAIL;
     },
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
       }
+      if (profile) {
+        token.email =
+          token.email ||
+          (profile as any).preferred_username ||
+          (profile as any).upn;
+      }
       return token;
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
+      if (token.email && session.user) {
+        session.user.email = token.email as string;
+      }
       return session;
     },
   },
