@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthSession, isAuthorized } from "@/lib/auth";
+import { getSupabaseAdmin } from "@/lib/supabase";
+import type { Priority } from "@/types";
+
+export async function GET(req: NextRequest) {
+  const session = await getAuthSession();
+  if (!session || !isAuthorized(session.user?.email)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = getSupabaseAdmin();
+  const priority = req.nextUrl.searchParams.get("priority") as Priority | null;
+  const page = parseInt(req.nextUrl.searchParams.get("page") || "1");
+  const limit = 50;
+  const offset = (page - 1) * limit;
+
+  let query = supabase
+    .from("emails")
+    .select("*", { count: "exact" })
+    .order("received_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (priority) {
+    query = query.eq("priority", priority);
+  }
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ emails: data, total: count, page, limit });
+}
