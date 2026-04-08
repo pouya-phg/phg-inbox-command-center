@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, CheckSquare, Square, CheckCircle } from "lucide-react";
 import type { Email, Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 import EmailCard from "./EmailCard";
@@ -20,9 +20,12 @@ export default function Dashboard() {
     noise: 0,
   });
   const [markingAll, setMarkingAll] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActioning, setBulkActioning] = useState(false);
 
   const fetchEmails = useCallback(async (priority: Priority) => {
     setLoading(true);
+    setSelectedIds(new Set());
     const res = await fetch(`/api/emails?priority=${priority}`);
     if (res.ok) {
       const data = await res.json();
@@ -50,6 +53,26 @@ export default function Dashboard() {
     fetchCounts();
   }, [activeTab, fetchEmails, fetchCounts]);
 
+  function toggleSelect(messageId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  }
+
+  function selectAll() {
+    if (selectedIds.size === emails.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(emails.map((e) => e.message_id)));
+    }
+  }
+
   async function handleMarkRead(messageId: string) {
     await fetch("/api/mark-read", {
       method: "POST",
@@ -63,6 +86,25 @@ export default function Dashboard() {
     );
   }
 
+  async function handleBulkMarkRead() {
+    if (selectedIds.size === 0) return;
+    setBulkActioning(true);
+    const ids = Array.from(selectedIds);
+    await fetch("/api/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageIds: ids }),
+    });
+    setEmails((prev) =>
+      prev.map((e) =>
+        selectedIds.has(e.message_id) ? { ...e, is_read: true } : e
+      )
+    );
+    setSelectedIds(new Set());
+    fetchCounts();
+    setBulkActioning(false);
+  }
+
   async function handleMarkAllNoiseRead() {
     setMarkingAll(true);
     await fetch("/api/mark-read", {
@@ -73,9 +115,16 @@ export default function Dashboard() {
     if (activeTab === "noise") {
       setEmails((prev) => prev.map((e) => ({ ...e, is_read: true })));
     }
+    setSelectedIds(new Set());
     fetchCounts();
     setMarkingAll(false);
   }
+
+  const allSelected = emails.length > 0 && selectedIds.size === emails.length;
+  const someSelected = selectedIds.size > 0;
+  const unreadSelected = emails.filter(
+    (e) => selectedIds.has(e.message_id) && !e.is_read
+  ).length;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -117,25 +166,64 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Bulk actions */}
-      {activeTab === "noise" && counts.noise > 0 && (
-        <div className="mb-4">
+      {/* Selection toolbar */}
+      {!loading && emails.length > 0 && (
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          {/* Select all checkbox */}
           <button
-            onClick={handleMarkAllNoiseRead}
-            disabled={markingAll}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white text-sm rounded-md hover:bg-gray-900 disabled:opacity-50"
+            onClick={selectAll}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
           >
-            <Trash2 className="w-4 h-4" />
-            {markingAll
-              ? "Marking all as read..."
-              : `Mark all ${counts.noise} noise as read`}
+            {allSelected ? (
+              <CheckSquare className="w-4 h-4 text-blue-600" />
+            ) : (
+              <Square className="w-4 h-4" />
+            )}
+            {allSelected ? "Deselect all" : "Select all"}
           </button>
+
+          {/* Selection count */}
+          {someSelected && (
+            <span className="text-sm text-blue-600 font-medium">
+              {selectedIds.size} selected
+            </span>
+          )}
+
+          {/* Bulk actions (shown when items are selected) */}
+          {someSelected && unreadSelected > 0 && (
+            <button
+              onClick={handleBulkMarkRead}
+              disabled={bulkActioning}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              {bulkActioning
+                ? "Marking..."
+                : `Mark ${unreadSelected} as read`}
+            </button>
+          )}
+
+          {/* Mark all noise as read (always visible on noise tab) */}
+          {activeTab === "noise" && counts.noise > 0 && (
+            <button
+              onClick={handleMarkAllNoiseRead}
+              disabled={markingAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 text-white text-sm rounded-md hover:bg-gray-900 disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {markingAll
+                ? "Marking all..."
+                : `Mark all ${counts.noise} noise as read`}
+            </button>
+          )}
         </div>
       )}
 
       {/* Email list */}
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading emails...</div>
+        <div className="text-center py-12 text-gray-500">
+          Loading emails...
+        </div>
       ) : emails.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           No emails in this category
@@ -146,6 +234,8 @@ export default function Dashboard() {
             <EmailCard
               key={email.id}
               email={email}
+              selected={selectedIds.has(email.message_id)}
+              onToggleSelect={toggleSelect}
               onMarkRead={handleMarkRead}
             />
           ))}

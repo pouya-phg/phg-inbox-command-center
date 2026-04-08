@@ -5,26 +5,40 @@ import {
   ExternalLink,
   CheckCircle,
   Paperclip,
-  Mail,
 } from "lucide-react";
 import type { Email } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 
 interface EmailCardProps {
   email: Email;
+  selected: boolean;
+  onToggleSelect: (messageId: string) => void;
   onMarkRead: (messageId: string) => void;
 }
 
-export default function EmailCard({ email, onMarkRead }: EmailCardProps) {
+export default function EmailCard({
+  email,
+  selected,
+  onToggleSelect,
+  onMarkRead,
+}: EmailCardProps) {
   const config = PRIORITY_CONFIG[email.priority];
 
   return (
     <div
       className={`border rounded-lg p-4 ${config.bgColor} ${
         email.is_read ? "opacity-60" : ""
-      }`}
+      } ${selected ? "ring-2 ring-blue-500" : ""}`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        {/* Checkbox */}
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(email.message_id)}
+          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer shrink-0"
+        />
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span
@@ -49,6 +63,7 @@ export default function EmailCard({ email, onMarkRead }: EmailCardProps) {
             </p>
           )}
         </div>
+
         <div className="flex flex-col items-end gap-2 shrink-0">
           <span className="text-xs text-gray-500 whitespace-nowrap">
             {formatDistanceToNow(new Date(email.received_at), {
