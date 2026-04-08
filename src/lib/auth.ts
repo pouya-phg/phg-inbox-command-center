@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 const ALLOWED_EMAIL = "phonari@pacifichospitality.com";
 
 export const authOptions: NextAuthOptions = {
+  debug: process.env.NODE_ENV === "development",
   providers: [
     {
       id: "azure-ad",
@@ -13,17 +14,23 @@ export const authOptions: NextAuthOptions = {
       wellKnown: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration`,
       clientId: process.env.AZURE_CLIENT_ID!,
       clientSecret: process.env.AZURE_CLIENT_SECRET!,
+      idToken: true,
+      checks: ["pkce", "state"],
       authorization: {
         params: {
           scope:
             "openid profile email Mail.Read Mail.ReadWrite offline_access User.Read",
+          prompt: "consent",
         },
       },
       profile(profile) {
         return {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email ?? profile.preferred_username,
+          id: profile.sub || profile.oid,
+          name: profile.name || profile.preferred_username,
+          email:
+            profile.email ||
+            profile.preferred_username ||
+            profile.upn,
         };
       },
     },
