@@ -56,21 +56,15 @@ export default function Dashboard() {
   function toggleSelect(messageId: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(messageId)) {
-        next.delete(messageId);
-      } else {
-        next.add(messageId);
-      }
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
       return next;
     });
   }
 
   function selectAll() {
-    if (selectedIds.size === emails.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(emails.map((e) => e.message_id)));
-    }
+    if (selectedIds.size === emails.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(emails.map((e) => e.message_id)));
   }
 
   async function handleMarkRead(messageId: string) {
@@ -127,120 +121,134 @@ export default function Dashboard() {
   ).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Inbox Command Center
-        </h1>
-        <a
-          href="/rules"
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-        >
-          Manage Rules →
-        </a>
-      </div>
-
-      {/* Sync Controls */}
-      <div className="mb-6 p-4 bg-white border rounded-lg">
-        <SyncControls />
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
+    <div className="min-h-screen bg-[#080f0d]">
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-[28px] font-medium text-[#f0ece4] tracking-[-0.01em]">
+              Inbox Command Center
+            </h1>
+            <p className="text-sm text-[#6e6858] mt-1">
+              AI-powered email triage
+            </p>
+          </div>
+          <a
+            href="/rules"
+            className="text-sm text-[#c8a040] hover:text-[#a88030] font-medium transition-colors"
           >
-            {PRIORITY_CONFIG[tab].label}
-            <span className="ml-1.5 text-xs bg-gray-100 rounded-full px-2 py-0.5">
-              {counts[tab]}
-            </span>
-          </button>
-        ))}
-      </div>
+            Manage Rules →
+          </a>
+        </div>
 
-      {/* Selection toolbar */}
-      {!loading && emails.length > 0 && (
-        <div className="mb-4 flex items-center gap-3 flex-wrap">
-          {/* Select all checkbox */}
-          <button
-            onClick={selectAll}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            {allSelected ? (
-              <CheckSquare className="w-4 h-4 text-blue-600" />
-            ) : (
-              <Square className="w-4 h-4" />
+        {/* Sync Controls */}
+        <div className="mb-8 p-4 bg-[#0f1a16] border-[0.5px] border-[#1e3028] rounded-[10px]">
+          <SyncControls />
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 border-b border-[#1e3028]">
+          {TABS.map((tab) => {
+            const config = PRIORITY_CONFIG[tab];
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  isActive
+                    ? "border-[#c8a040] text-[#c8a040]"
+                    : "border-transparent text-[rgba(255,255,255,0.45)] hover:text-[#b0a890]"
+                }`}
+              >
+                {config.label}
+                <span
+                  className={`ml-2 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                    isActive
+                      ? "bg-[rgba(200,160,64,0.15)] text-[#c8a040]"
+                      : "bg-[rgba(255,255,255,0.06)] text-[#6e6858]"
+                  }`}
+                >
+                  {counts[tab]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selection toolbar */}
+        {!loading && emails.length > 0 && (
+          <div className="mb-4 flex items-center gap-3 flex-wrap">
+            <button
+              onClick={selectAll}
+              className="flex items-center gap-2 text-sm text-[#b0a890] hover:text-[#f0ece4] transition-colors"
+            >
+              {allSelected ? (
+                <CheckSquare className="w-4 h-4 text-[#c8a040]" />
+              ) : (
+                <Square className="w-4 h-4 text-[#6e6858]" />
+              )}
+              {allSelected ? "Deselect all" : "Select all"}
+            </button>
+
+            {someSelected && (
+              <span className="text-sm text-[#c8a040] font-medium">
+                {selectedIds.size} selected
+              </span>
             )}
-            {allSelected ? "Deselect all" : "Select all"}
-          </button>
 
-          {/* Selection count */}
-          {someSelected && (
-            <span className="text-sm text-blue-600 font-medium">
-              {selectedIds.size} selected
-            </span>
-          )}
+            {someSelected && unreadSelected > 0 && (
+              <button
+                onClick={handleBulkMarkRead}
+                disabled={bulkActioning}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(96,200,128,0.12)] text-[#60c880] text-sm font-medium rounded-md border-[0.5px] border-[rgba(96,200,128,0.25)] hover:bg-[rgba(96,200,128,0.20)] disabled:opacity-50 transition-colors"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                {bulkActioning
+                  ? "Marking..."
+                  : `Mark ${unreadSelected} as read`}
+              </button>
+            )}
 
-          {/* Bulk actions (shown when items are selected) */}
-          {someSelected && unreadSelected > 0 && (
-            <button
-              onClick={handleBulkMarkRead}
-              disabled={bulkActioning}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              {bulkActioning
-                ? "Marking..."
-                : `Mark ${unreadSelected} as read`}
-            </button>
-          )}
+            {activeTab === "noise" && counts.noise > 0 && (
+              <button
+                onClick={handleMarkAllNoiseRead}
+                disabled={markingAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(192,104,88,0.12)] text-[#c06858] text-sm font-medium rounded-md border-[0.5px] border-[rgba(192,104,88,0.25)] hover:bg-[rgba(192,104,88,0.20)] disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {markingAll
+                  ? "Marking all..."
+                  : `Mark all ${counts.noise} noise as read`}
+              </button>
+            )}
+          </div>
+        )}
 
-          {/* Mark all noise as read (always visible on noise tab) */}
-          {activeTab === "noise" && counts.noise > 0 && (
-            <button
-              onClick={handleMarkAllNoiseRead}
-              disabled={markingAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 text-white text-sm rounded-md hover:bg-gray-900 disabled:opacity-50"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {markingAll
-                ? "Marking all..."
-                : `Mark all ${counts.noise} noise as read`}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Email list */}
-      {loading ? (
-        <div className="text-center py-12 text-gray-500">
-          Loading emails...
-        </div>
-      ) : emails.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          No emails in this category
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {emails.map((email) => (
-            <EmailCard
-              key={email.id}
-              email={email}
-              selected={selectedIds.has(email.message_id)}
-              onToggleSelect={toggleSelect}
-              onMarkRead={handleMarkRead}
-            />
-          ))}
-        </div>
-      )}
+        {/* Email list */}
+        {loading ? (
+          <div className="text-center py-16 text-[#6e6858]">
+            <div className="inline-block w-6 h-6 border-2 border-[#264038] border-t-[#c8a040] rounded-full animate-spin mb-3" />
+            <p>Loading emails...</p>
+          </div>
+        ) : emails.length === 0 ? (
+          <div className="text-center py-16 text-[#6e6858]">
+            No emails in this category
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {emails.map((email) => (
+              <EmailCard
+                key={email.id}
+                email={email}
+                selected={selectedIds.has(email.message_id)}
+                onToggleSelect={toggleSelect}
+                onMarkRead={handleMarkRead}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

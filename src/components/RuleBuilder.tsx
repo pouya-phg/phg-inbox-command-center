@@ -89,53 +89,63 @@ export default function RuleBuilder() {
   }
 
   if (loading) {
-    return <div className="text-center py-12 text-gray-500">Loading rules...</div>;
+    return (
+      <div className="text-center py-16 text-[#6e6858]">Loading rules...</div>
+    );
   }
 
   return (
     <div>
       {/* Existing rules */}
-      <div className="space-y-3 mb-6">
+      <div className="space-y-2 mb-6">
         {rules.map((rule) => (
           <div
             key={rule.id}
-            className="border rounded-lg p-4 bg-white flex items-center justify-between"
+            className="bg-[#111c18] border-[0.5px] border-[#1e3028] rounded-[10px] p-4 flex items-center justify-between hover:bg-[#162420] transition-colors"
           >
             <div>
               <div className="flex items-center gap-2">
                 {rule.is_active ? (
-                  <Power className="w-4 h-4 text-green-500" />
+                  <Power className="w-4 h-4 text-[#60c880]" />
                 ) : (
-                  <PowerOff className="w-4 h-4 text-gray-400" />
+                  <PowerOff className="w-4 h-4 text-[#6e6858]" />
                 )}
-                <h3 className="font-medium text-gray-900">{rule.rule_name}</h3>
+                <h3 className="font-medium text-[#f0ece4] text-sm">
+                  {rule.rule_name}
+                </h3>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded ${
-                    PRIORITY_CONFIG[rule.action as Priority]?.color
-                  } bg-gray-100`}
+                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                    PRIORITY_CONFIG[rule.action as Priority]?.badgeStyle
+                  }`}
                 >
                   → {PRIORITY_CONFIG[rule.action as Priority]?.label}
                 </span>
               </div>
-              <div className="mt-1 text-sm text-gray-600">
+              <div className="mt-1 text-sm text-[#b0a890]">
                 {(rule.conditions as RuleCondition[]).map((c, i) => (
                   <span key={i}>
-                    {i > 0 && " AND "}
-                    {c.field} {c.operator} &quot;{c.value}&quot;
+                    {i > 0 && (
+                      <span className="text-[#6e6858]"> AND </span>
+                    )}
+                    <span className="text-[#c8a040]">{c.field}</span>{" "}
+                    {c.operator}{" "}
+                    <span className="text-[#f0ece4]">
+                      &quot;{c.value}&quot;
+                    </span>
                   </span>
                 ))}
               </div>
             </div>
             <button
               onClick={() => deleteRule(rule.id)}
-              className="p-2 text-gray-400 hover:text-red-600"
+              className="p-2 text-[#6e6858] hover:text-[#c06858] transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
         ))}
         {rules.length === 0 && (
-          <p className="text-gray-500 text-sm">
+          <p className="text-[#6e6858] text-sm">
             No rules yet. Create one to auto-triage emails.
           </p>
         )}
@@ -143,7 +153,7 @@ export default function RuleBuilder() {
 
       {/* Add rule form */}
       {showForm ? (
-        <div className="border rounded-lg p-4 bg-white space-y-4">
+        <div className="bg-[#0f1a16] border-[0.5px] border-[#264038] rounded-[12px] p-6 space-y-4">
           <input
             type="text"
             placeholder="Rule name (e.g., Workday notifications)"
@@ -151,20 +161,24 @@ export default function RuleBuilder() {
             onChange={(e) =>
               setNewRule({ ...newRule, rule_name: e.target.value })
             }
-            className="w-full border rounded px-3 py-2 text-sm"
+            className="w-full bg-[#111c18] border-[0.5px] border-[#264038] rounded-md px-3 py-2 text-sm text-[#f0ece4] placeholder-[#6e6858] focus:border-[#c8a040] focus:outline-none transition-colors"
           />
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">Conditions</p>
+            <p className="text-[10px] font-medium text-[#b0a890] uppercase tracking-[0.08em]">
+              Conditions
+            </p>
             {newRule.conditions.map((condition, i) => (
               <div key={i} className="flex gap-2 items-center">
                 {i > 0 && (
-                  <span className="text-xs text-gray-500 font-medium">AND</span>
+                  <span className="text-[10px] text-[#6e6858] font-medium uppercase">
+                    AND
+                  </span>
                 )}
                 <select
                   value={condition.field}
                   onChange={(e) => updateCondition(i, "field", e.target.value)}
-                  className="border rounded px-2 py-1.5 text-sm"
+                  className="bg-[#111c18] border-[0.5px] border-[#264038] rounded-md px-2 py-1.5 text-sm text-[#f0ece4] focus:border-[#c8a040] focus:outline-none"
                 >
                   <option value="sender">Sender</option>
                   <option value="subject">Subject</option>
@@ -175,7 +189,7 @@ export default function RuleBuilder() {
                   onChange={(e) =>
                     updateCondition(i, "operator", e.target.value)
                   }
-                  className="border rounded px-2 py-1.5 text-sm"
+                  className="bg-[#111c18] border-[0.5px] border-[#264038] rounded-md px-2 py-1.5 text-sm text-[#f0ece4] focus:border-[#c8a040] focus:outline-none"
                 >
                   <option value="contains">contains</option>
                   <option value="equals">equals</option>
@@ -186,12 +200,12 @@ export default function RuleBuilder() {
                   placeholder="Value"
                   value={condition.value}
                   onChange={(e) => updateCondition(i, "value", e.target.value)}
-                  className="flex-1 border rounded px-2 py-1.5 text-sm"
+                  className="flex-1 bg-[#111c18] border-[0.5px] border-[#264038] rounded-md px-2 py-1.5 text-sm text-[#f0ece4] placeholder-[#6e6858] focus:border-[#c8a040] focus:outline-none"
                 />
                 {newRule.conditions.length > 1 && (
                   <button
                     onClick={() => removeCondition(i)}
-                    className="text-gray-400 hover:text-red-500"
+                    className="text-[#6e6858] hover:text-[#c06858] transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -200,14 +214,14 @@ export default function RuleBuilder() {
             ))}
             <button
               onClick={addCondition}
-              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              className="text-sm text-[#c8a040] hover:text-[#a88030] flex items-center gap-1 transition-colors"
             >
               <Plus className="w-3 h-3" /> Add condition
             </button>
           </div>
 
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-1">
+            <p className="text-[10px] font-medium text-[#b0a890] uppercase tracking-[0.08em] mb-1">
               Assign priority
             </p>
             <select
@@ -215,7 +229,7 @@ export default function RuleBuilder() {
               onChange={(e) =>
                 setNewRule({ ...newRule, action: e.target.value as Priority })
               }
-              className="border rounded px-3 py-2 text-sm"
+              className="bg-[#111c18] border-[0.5px] border-[#264038] rounded-md px-3 py-2 text-sm text-[#f0ece4] focus:border-[#c8a040] focus:outline-none"
             >
               {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
                 <option key={key} value={key}>
@@ -225,17 +239,17 @@ export default function RuleBuilder() {
             </select>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-2">
             <button
               onClick={saveRule}
               disabled={saving}
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-[#c8a040] text-white text-sm font-medium rounded-md hover:bg-[#a88030] disabled:opacity-50 transition-colors"
             >
               {saving ? "Saving..." : "Save Rule"}
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 text-gray-600 text-sm rounded-md hover:bg-gray-100"
+              className="px-4 py-2 text-[#b0a890] text-sm rounded-md border-[0.5px] border-[#264038] hover:bg-[#162420] transition-colors"
             >
               Cancel
             </button>
@@ -244,7 +258,7 @@ export default function RuleBuilder() {
       ) : (
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-[#c8a040] text-white text-sm font-medium rounded-md hover:bg-[#a88030] transition-colors"
         >
           <Plus className="w-4 h-4" /> New Rule
         </button>

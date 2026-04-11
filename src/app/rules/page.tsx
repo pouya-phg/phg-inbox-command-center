@@ -14,17 +14,26 @@ export default async function RulesPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Triage Rules</h1>
-        <a
-          href="/"
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-        >
-          ← Back to Dashboard
-        </a>
+    <div className="min-h-screen bg-[#080f0d]">
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-[28px] font-medium text-[#f0ece4] tracking-[-0.01em]">
+              Triage Rules
+            </h1>
+            <p className="text-sm text-[#6e6858] mt-1">
+              Auto-classify emails by sender, subject, or content
+            </p>
+          </div>
+          <a
+            href="/"
+            className="text-sm text-[#c8a040] hover:text-[#a88030] font-medium transition-colors"
+          >
+            ← Back to Dashboard
+          </a>
+        </div>
+        <RuleBuilder />
       </div>
-      <RuleBuilder />
     </div>
   );
 }

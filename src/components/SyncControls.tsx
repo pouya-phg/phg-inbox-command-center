@@ -25,7 +25,6 @@ export default function SyncControls() {
     setSyncing(true);
     try {
       await fetch("/api/sync", { method: "POST" });
-      // Wait a moment then refresh state
       setTimeout(fetchSyncState, 3000);
     } finally {
       setSyncing(false);
@@ -54,30 +53,34 @@ export default function SyncControls() {
 
   return (
     <div className="flex items-center gap-4 flex-wrap">
-      {/* Sync status */}
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        <Clock className="w-4 h-4" />
+      <div className="flex items-center gap-2 text-sm text-[#b0a890]">
+        <Clock className="w-4 h-4 text-[#6e6858]" />
         {syncState?.last_synced_at ? (
           <span>
             Last synced{" "}
             {formatDistanceToNow(new Date(syncState.last_synced_at), {
               addSuffix: true,
             })}{" "}
-            | {syncState.total_processed} emails processed
+            <span className="text-[#6e6858]">|</span>{" "}
+            <span className="text-[#c8a040] font-medium">
+              {syncState.total_processed}
+            </span>{" "}
+            emails processed
           </span>
         ) : (
           <span>Never synced</span>
         )}
       </div>
 
-      {/* Nightly toggle */}
       <label className="flex items-center gap-2 cursor-pointer">
-        <span className="text-sm text-gray-600">Nightly auto-sync</span>
+        <span className="text-sm text-[#b0a890]">Nightly auto-sync</span>
         <button
           onClick={toggleNightlySync}
           disabled={toggling}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            syncState?.nightly_sync_enabled ? "bg-blue-600" : "bg-gray-300"
+            syncState?.nightly_sync_enabled
+              ? "bg-[#c8a040]"
+              : "bg-[#264038]"
           }`}
         >
           <span
@@ -90,11 +93,10 @@ export default function SyncControls() {
         </button>
       </label>
 
-      {/* Sync now button */}
       <button
         onClick={triggerSync}
         disabled={syncing}
-        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+        className="flex items-center gap-2 px-3 py-1.5 bg-[#c8a040] text-white text-sm font-medium rounded-md hover:bg-[#a88030] disabled:opacity-50 transition-colors"
       >
         <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
         {syncing ? "Syncing..." : "Sync Now"}

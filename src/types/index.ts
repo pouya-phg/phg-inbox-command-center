@@ -38,26 +38,30 @@ export interface SyncState {
 
 export const PRIORITY_CONFIG: Record<
   Priority,
-  { label: string; color: string; bgColor: string }
+  { label: string; textStyle: string; badgeStyle: string; cardStyle: string }
 > = {
   p1: {
     label: "Needs Action",
-    color: "text-red-700",
-    bgColor: "bg-red-50 border-red-200",
+    textStyle: "text-[#c06858]",
+    badgeStyle: "bg-[#200c0c] text-[#c06858]",
+    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
   },
   p2: {
     label: "High Priority",
-    color: "text-orange-700",
-    bgColor: "bg-orange-50 border-orange-200",
+    textStyle: "text-[#c89040]",
+    badgeStyle: "bg-[#1e1608] text-[#c89040]",
+    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
   },
   p3: {
     label: "Informational",
-    color: "text-blue-700",
-    bgColor: "bg-blue-50 border-blue-200",
+    textStyle: "text-[#b0a890]",
+    badgeStyle: "bg-[rgba(255,255,255,0.06)] text-[#b0a890]",
+    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
   },
   noise: {
     label: "Noise",
-    color: "text-gray-500",
-    bgColor: "bg-gray-50 border-gray-200",
+    textStyle: "text-[#6e6858]",
+    badgeStyle: "bg-[rgba(255,255,255,0.06)] text-[#6e6858]",
+    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
   },
 };

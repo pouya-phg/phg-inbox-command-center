@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Midnight Emerald — Background */
+  --me-bg-primary: #080f0d;
+  --me-bg-secondary: #0f1a16;
+  --me-surface: #111c18;
+  --me-surface-raised: #162420;
+
+  /* Borders */
+  --me-border-subtle: #1e3028;
+  --me-border-medium: #264038;
+
+  /* Accent — Gold */
+  --me-gold: #c8a040;
+  --me-gold-hover: #a88030;
+  --me-gold-tint: rgba(200, 160, 64, 0.15);
+  --me-gold-dark: #7a5e20;
+
+  /* Text */
+  --me-text-primary: #f0ece4;
+  --me-text-secondary: #b0a890;
+  --me-text-muted: #6e6858;
+
+  /* Semantic */
+  --me-success: #60c880;
+  --me-success-bg: #0c2018;
+  --me-danger: #c06858;
+  --me-danger-bg: #200c0c;
+  --me-warning: #c89040;
+  --me-warning-bg: #1e1608;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--me-bg-primary);
+  --color-foreground: var(--me-text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--me-bg-primary);
+  color: var(--me-text-primary);
+  font-family: "Inter", "DM Sans", system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--me-bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--me-border-medium);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--me-gold);
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(200, 160, 64, 0.4);
+}
+
+/* Selection */
+::selection {
+  background: rgba(200, 160, 64, 0.3);
+  color: var(--me-text-primary);
 }
