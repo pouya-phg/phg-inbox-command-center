@@ -8,29 +8,42 @@ import { PRIORITY_CONFIG } from "@/types";
 interface EmailCardProps {
   email: Email;
   selected: boolean;
+  isActive: boolean;
   onToggleSelect: (messageId: string) => void;
   onMarkRead: (messageId: string) => void;
+  onOpen: (email: Email) => void;
 }
 
 export default function EmailCard({
   email,
   selected,
+  isActive,
   onToggleSelect,
   onMarkRead,
+  onOpen,
 }: EmailCardProps) {
   const config = PRIORITY_CONFIG[email.priority];
 
   return (
     <div
-      className={`rounded-[10px] p-4 transition-all duration-150 ${config.cardStyle} ${
-        email.is_read ? "opacity-50" : ""
-      } ${selected ? "ring-2 ring-[#c8a040]/40" : ""}`}
+      onClick={() => onOpen(email)}
+      className={`rounded-[10px] p-4 transition-all duration-150 cursor-pointer ${
+        isActive
+          ? "bg-[#162420] border-[0.5px] border-[#c8a040]/30"
+          : config.cardStyle
+      } ${email.is_read ? "opacity-50" : ""} ${
+        selected && !isActive ? "ring-2 ring-[#c8a040]/40" : ""
+      }`}
     >
       <div className="flex items-start gap-3">
         <input
           type="checkbox"
           checked={selected}
-          onChange={() => onToggleSelect(email.message_id)}
+          onChange={(e) => {
+            e.stopPropagation();
+            onToggleSelect(email.message_id);
+          }}
+          onClick={(e) => e.stopPropagation()}
           className="mt-1 h-4 w-4 rounded border-[#264038] bg-[#111c18] text-[#c8a040] cursor-pointer shrink-0 accent-[#c8a040]"
         />
 
@@ -44,16 +57,16 @@ export default function EmailCard({
             {email.has_attachments && (
               <Paperclip className="w-3 h-3 text-[#6e6858]" />
             )}
-            {email.is_read && (
-              <span className="text-[10px] text-[#6e6858]">Read</span>
+            {!email.is_read && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c8a040]" />
             )}
           </div>
           <h3 className="font-medium text-[#f0ece4] truncate text-sm">
             {email.subject || "(No Subject)"}
           </h3>
-          <p className="text-xs text-[#b0a890] mt-0.5">{email.sender}</p>
+          <p className="text-xs text-[#6e6858] mt-0.5">{email.sender}</p>
           {email.summary && (
-            <p className="text-sm text-[#b0a890] mt-2 line-clamp-2 leading-relaxed">
+            <p className="text-[13px] text-[#b0a890] mt-1.5 line-clamp-1 leading-relaxed">
               {email.summary}
             </p>
           )}
@@ -71,19 +84,23 @@ export default function EmailCard({
                 href={email.web_link}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
                 className="p-1.5 rounded-md text-[#6e6858] hover:text-[#c8a040] hover:bg-[#162420] transition-colors"
                 title="Open in Outlook"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
             {!email.is_read && (
               <button
-                onClick={() => onMarkRead(email.message_id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkRead(email.message_id);
+                }}
                 className="p-1.5 rounded-md text-[#6e6858] hover:text-[#60c880] hover:bg-[#0c2018] transition-colors"
                 title="Mark as read"
               >
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle className="w-3.5 h-3.5" />
               </button>
             )}
           </div>

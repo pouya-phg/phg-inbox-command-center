@@ -5,6 +5,7 @@ import { Trash2, CheckSquare, Square, CheckCircle } from "lucide-react";
 import type { Email, Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 import EmailCard from "./EmailCard";
+import EmailPanel from "./EmailPanel";
 import SyncControls from "./SyncControls";
 
 const TABS: Priority[] = ["p1", "p2", "p3", "noise"];
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [markingAll, setMarkingAll] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkActioning, setBulkActioning] = useState(false);
+  const [activeEmail, setActiveEmail] = useState<Email | null>(null);
 
   const fetchEmails = useCallback(async (priority: Priority) => {
     setLoading(true);
@@ -53,6 +55,24 @@ export default function Dashboard() {
     fetchCounts();
   }, [activeTab, fetchEmails, fetchCounts]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      if (!activeEmail) return;
+      const idx = emails.findIndex((em) => em.message_id === activeEmail.message_id);
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        if (idx < emails.length - 1) setActiveEmail(emails[idx + 1]);
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (idx > 0) setActiveEmail(emails[idx - 1]);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [activeEmail, emails]);
+
   function toggleSelect(messageId: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -67,8 +87,8 @@ export default function Dashboard() {
     else setSelectedIds(new Set(emails.map((e) => e.message_id)));
   }
 
-  async function handleMarkRead(messageId: string) {
-    await fetch("/api/mark-read", {
+  function handleMarkRead(messageId: string) {
+    fetch("/api/mark-read", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messageIds: [messageId] }),
@@ -122,14 +142,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#080f0d]">
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[28px] font-medium text-[#f0ece4] tracking-[-0.01em]">
               Inbox Command Center
             </h1>
-            <p className="text-sm text-[#6e6858] mt-1">
+            <p className="text-sm text-[#6e6858] mt-0.5">
               AI-powered email triage
             </p>
           </div>
@@ -142,26 +162,29 @@ export default function Dashboard() {
         </div>
 
         {/* Sync Controls */}
-        <div className="mb-8 p-4 bg-[#0f1a16] border-[0.5px] border-[#1e3028] rounded-[10px]">
+        <div className="mb-6 p-4 bg-[#0f1a16] border-[0.5px] border-[#1e3028] rounded-[10px]">
           <SyncControls />
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-[#1e3028]">
+        <div className="flex gap-1 mb-4 border-b border-[#1e3028]">
           {TABS.map((tab) => {
-            const config = PRIORITY_CONFIG[tab];
+            const tabConfig = PRIORITY_CONFIG[tab];
             const isActive = activeTab === tab;
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setActiveEmail(null);
+                }}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                   isActive
                     ? "border-[#c8a040] text-[#c8a040]"
                     : "border-transparent text-[rgba(255,255,255,0.45)] hover:text-[#b0a890]"
                 }`}
               >
-                {config.label}
+                {tabConfig.label}
                 <span
                   className={`ml-2 text-[10px] font-medium px-2 py-0.5 rounded-full ${
                     isActive
@@ -178,7 +201,7 @@ export default function Dashboard() {
 
         {/* Selection toolbar */}
         {!loading && emails.length > 0 && (
-          <div className="mb-4 flex items-center gap-3 flex-wrap">
+          <div className="mb-3 flex items-center gap-3 flex-wrap">
             <button
               onClick={selectAll}
               className="flex items-center gap-2 text-sm text-[#b0a890] hover:text-[#f0ece4] transition-colors"
@@ -204,9 +227,7 @@ export default function Dashboard() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(96,200,128,0.12)] text-[#60c880] text-sm font-medium rounded-md border-[0.5px] border-[rgba(96,200,128,0.25)] hover:bg-[rgba(96,200,128,0.20)] disabled:opacity-50 transition-colors"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
-                {bulkActioning
-                  ? "Marking..."
-                  : `Mark ${unreadSelected} as read`}
+                {bulkActioning ? "Marking..." : `Mark ${unreadSelected} as read`}
               </button>
             )}
 
@@ -217,10 +238,14 @@ export default function Dashboard() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(192,104,88,0.12)] text-[#c06858] text-sm font-medium rounded-md border-[0.5px] border-[rgba(192,104,88,0.25)] hover:bg-[rgba(192,104,88,0.20)] disabled:opacity-50 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                {markingAll
-                  ? "Marking all..."
-                  : `Mark all ${counts.noise} noise as read`}
+                {markingAll ? "Marking all..." : `Mark all ${counts.noise} noise as read`}
               </button>
+            )}
+
+            {activeEmail && (
+              <span className="ml-auto text-[10px] text-[#6e6858] hidden lg:block">
+                J/K or arrows to navigate
+              </span>
             )}
           </div>
         )}
@@ -236,19 +261,32 @@ export default function Dashboard() {
             No emails in this category
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {emails.map((email) => (
               <EmailCard
                 key={email.id}
                 email={email}
                 selected={selectedIds.has(email.message_id)}
+                isActive={activeEmail?.message_id === email.message_id}
                 onToggleSelect={toggleSelect}
                 onMarkRead={handleMarkRead}
+                onOpen={setActiveEmail}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Email detail panel */}
+      {activeEmail && (
+        <EmailPanel
+          messageId={activeEmail.message_id}
+          priority={activeEmail.priority}
+          summary={activeEmail.summary}
+          onClose={() => setActiveEmail(null)}
+          onMarkRead={handleMarkRead}
+        />
+      )}
     </div>
   );
 }
