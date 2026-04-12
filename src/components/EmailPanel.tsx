@@ -11,6 +11,10 @@ import {
   CheckCircle,
   Loader2,
   Inbox,
+  FileText,
+  Image,
+  FileSpreadsheet,
+  File,
 } from "lucide-react";
 import type { Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
@@ -28,11 +32,31 @@ interface GraphEmail {
   webLink: string;
 }
 
+interface Attachment {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+}
+
 interface EmailPanelProps {
   messageId: string | null;
   priority: Priority;
   summary: string | null;
   onMarkRead: (messageId: string) => void;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIcon(contentType: string, name: string) {
+  if (contentType.startsWith("image/")) return <Image className="w-3.5 h-3.5" />;
+  if (name.match(/\.(xlsx?|csv)$/i) || contentType.includes("spreadsheet")) return <FileSpreadsheet className="w-3.5 h-3.5" />;
+  if (name.match(/\.(pdf|docx?|pptx?)$/i) || contentType.includes("pdf") || contentType.includes("document")) return <FileText className="w-3.5 h-3.5" />;
+  return <File className="w-3.5 h-3.5" />;
 }
 
 function EmptyState() {
@@ -70,6 +94,7 @@ export default function EmailPanel({
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -78,8 +103,10 @@ export default function EmailPanel({
       setShowReply(false);
       setReplyText("");
       setSent(false);
+      setAttachments([]);
     } else {
       setEmail(null);
+      setAttachments([]);
     }
   }, [messageId]);
 
@@ -96,6 +123,15 @@ export default function EmailPanel({
       const data = await res.json();
       setEmail(data);
       if (!data.isRead) onMarkRead(id);
+
+      // Fetch attachments if the email has them
+      if (data.hasAttachments) {
+        const attRes = await fetch(`/api/emails/${id}/attachments`);
+        if (attRes.ok) {
+          const attData = await attRes.json();
+          setAttachments(attData.attachments || []);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     }
@@ -232,6 +268,35 @@ export default function EmailPanel({
                 <p className="text-[13px] text-[#5a5a72] leading-relaxed">
                   {summary}
                 </p>
+              </div>
+            )}
+
+            {/* Attachments */}
+            {attachments.length > 0 && (
+              <div className="mt-3">
+                <p className="text-[10px] font-medium text-[#5a5a72] uppercase tracking-[0.08em] mb-1.5">
+                  Attachments ({attachments.length})
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {attachments.map((att) => (
+                    <a
+                      key={att.id}
+                      href={`/api/emails/${email.id}/attachments?attachmentId=${att.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f4f4f8] border-[0.5px] border-[#e0e0e8] rounded-md text-[12px] text-[#5a5a72] hover:bg-[#eef0f6] hover:border-[#cacad8] hover:text-[#607088] transition-colors group"
+                      title={`${att.name} (${formatFileSize(att.size)})`}
+                    >
+                      <span className="text-[#9898b0] group-hover:text-[#8090a8] transition-colors">
+                        {getFileIcon(att.contentType, att.name)}
+                      </span>
+                      <span className="truncate max-w-[160px]">{att.name}</span>
+                      <span className="text-[10px] text-[#9898b0] shrink-0">
+                        {formatFileSize(att.size)}
+                      </span>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
           </div>
