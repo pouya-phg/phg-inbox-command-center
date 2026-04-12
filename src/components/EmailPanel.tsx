@@ -6,15 +6,18 @@ import {
   ExternalLink,
   Reply,
   ReplyAll,
+  Forward,
   Send,
   Paperclip,
   CheckCircle,
   Loader2,
   Inbox,
   FileText,
-  Image,
+  Image as ImageIcon,
   FileSpreadsheet,
   File,
+  ShieldAlert,
+  ImageOff,
 } from "lucide-react";
 import type { Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
@@ -39,6 +42,8 @@ interface Attachment {
   size: number;
 }
 
+type ComposeMode = null | "reply" | "replyAll" | "forward";
+
 interface EmailPanelProps {
   messageId: string | null;
   priority: Priority;
@@ -53,10 +58,47 @@ function formatFileSize(bytes: number): string {
 }
 
 function getFileIcon(contentType: string, name: string) {
-  if (contentType.startsWith("image/")) return <Image className="w-3.5 h-3.5" />;
+  if (contentType.startsWith("image/")) return <ImageIcon className="w-3.5 h-3.5" />;
   if (name.match(/\.(xlsx?|csv)$/i) || contentType.includes("spreadsheet")) return <FileSpreadsheet className="w-3.5 h-3.5" />;
   if (name.match(/\.(pdf|docx?|pptx?)$/i) || contentType.includes("pdf") || contentType.includes("document")) return <FileText className="w-3.5 h-3.5" />;
   return <File className="w-3.5 h-3.5" />;
+}
+
+// Trusted domains whose images load automatically
+const TRUSTED_IMAGE_DOMAINS = [
+  "microsoft.com", "office.com", "outlook.com", "live.com",
+  "google.com", "googleapis.com", "googleusercontent.com",
+  "gstatic.com", "github.com", "githubusercontent.com",
+  "linkedin.com", "licdn.com", "gravatar.com",
+  "pacifichospitality.com", "phg.com",
+];
+
+function isTrustedImageSrc(src: string): boolean {
+  try {
+    const url = new URL(src);
+    return TRUSTED_IMAGE_DOMAINS.some((d) => url.hostname.endsWith(d));
+  } catch {
+    return false;
+  }
+}
+
+function hasExternalImages(html: string): boolean {
+  const imgRegex = /<img[^>]+src=["']?(https?:\/\/[^"'\s>]+)/gi;
+  let match;
+  while ((match = imgRegex.exec(html)) !== null) {
+    if (!isTrustedImageSrc(match[1])) return true;
+  }
+  return false;
+}
+
+function blockExternalImages(html: string): string {
+  return html.replace(
+    /(<img[^>]+src=["']?)(https?:\/\/[^"'\s>]+)/gi,
+    (full, prefix, src) => {
+      if (isTrustedImageSrc(src)) return full;
+      return `${prefix}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'/%3E" data-blocked-src="${src}`;
+    }
+  );
 }
 
 function EmptyState() {
@@ -66,44 +108,35 @@ function EmptyState() {
         <div className="w-16 h-16 rounded-full bg-[#eef0f6] flex items-center justify-center mx-auto mb-4">
           <Inbox className="w-7 h-7 text-[#8090a8]" />
         </div>
-        <p className="text-[15px] font-medium text-[#1a1a2e] mb-1">
-          Select an email
-        </p>
-        <p className="text-[13px] text-[#9898b0]">
-          Click any email on the left to read it here
-        </p>
-        <p className="text-[11px] text-[#cacad8] mt-3">
-          J/K or arrows to navigate
-        </p>
+        <p className="text-[15px] font-medium text-[#1a1a2e] mb-1">Select an email</p>
+        <p className="text-[13px] text-[#9898b0]">Click any email on the left to read it here</p>
+        <p className="text-[11px] text-[#cacad8] mt-3">J/K or arrows to navigate</p>
       </div>
     </div>
   );
 }
 
-export default function EmailPanel({
-  messageId,
-  priority,
-  summary,
-  onMarkRead,
-}: EmailPanelProps) {
+export default function EmailPanel({ messageId, priority, summary, onMarkRead }: EmailPanelProps) {
   const [email, setEmail] = useState<GraphEmail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showReply, setShowReply] = useState(false);
-  const [replyAll, setReplyAll] = useState(false);
-  const [replyText, setReplyText] = useState("");
+  const [composeMode, setComposeMode] = useState<ComposeMode>(null);
+  const [composeText, setComposeText] = useState("");
+  const [forwardTo, setForwardTo] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const replyRef = useRef<HTMLTextAreaElement>(null);
+  const [imagesBlocked, setImagesBlocked] = useState(false);
+  const [showImages, setShowImages] = useState(false);
+  const composeRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (messageId) {
       fetchEmail(messageId);
-      setShowReply(false);
-      setReplyText("");
-      setSent(false);
+      resetCompose();
       setAttachments([]);
+      setShowImages(false);
+      setImagesBlocked(false);
     } else {
       setEmail(null);
       setAttachments([]);
@@ -111,8 +144,15 @@ export default function EmailPanel({
   }, [messageId]);
 
   useEffect(() => {
-    if (showReply && replyRef.current) replyRef.current.focus();
-  }, [showReply]);
+    if (composeMode && composeRef.current) composeRef.current.focus();
+  }, [composeMode]);
+
+  function resetCompose() {
+    setComposeMode(null);
+    setComposeText("");
+    setForwardTo("");
+    setSent(false);
+  }
 
   async function fetchEmail(id: string) {
     setLoading(true);
@@ -124,7 +164,15 @@ export default function EmailPanel({
       setEmail(data);
       if (!data.isRead) onMarkRead(id);
 
-      // Fetch attachments if the email has them
+      // Check for external images
+      if (data.body?.content && hasExternalImages(data.body.content)) {
+        setImagesBlocked(true);
+        setShowImages(false);
+      } else {
+        setImagesBlocked(false);
+        setShowImages(true);
+      }
+
       if (data.hasAttachments) {
         const attRes = await fetch(`/api/emails/${id}/attachments`);
         if (attRes.ok) {
@@ -138,41 +186,68 @@ export default function EmailPanel({
     setLoading(false);
   }
 
-  async function handleSendReply() {
-    if (!replyText.trim() || !email) return;
-    setSending(true);
-    try {
-      const res = await fetch("/api/reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: email.id, comment: replyText, replyAll }),
-      });
-      if (!res.ok) throw new Error("Failed to send");
-      setSent(true);
-      setReplyText("");
-      setTimeout(() => { setSent(false); setShowReply(false); }, 2000);
-    } catch {
-      setError("Failed to send reply");
+  async function handleSend() {
+    if (!email) return;
+
+    if (composeMode === "forward") {
+      if (!forwardTo.trim()) return;
+      setSending(true);
+      try {
+        const res = await fetch("/api/forward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messageId: email.id,
+            toRecipients: forwardTo.split(",").map((e) => e.trim()).filter(Boolean),
+            comment: composeText,
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to forward");
+        setSent(true);
+        setTimeout(resetCompose, 2000);
+      } catch {
+        setError("Failed to forward email");
+      }
+      setSending(false);
+    } else {
+      if (!composeText.trim()) return;
+      setSending(true);
+      try {
+        const res = await fetch("/api/reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messageId: email.id,
+            comment: composeText,
+            replyAll: composeMode === "replyAll",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to send");
+        setSent(true);
+        setTimeout(resetCompose, 2000);
+      } catch {
+        setError("Failed to send reply");
+      }
+      setSending(false);
     }
-    setSending(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      handleSendReply();
+      handleSend();
     }
-    if (e.key === "Escape") {
-      setShowReply(false);
-      setReplyText("");
-    }
+    if (e.key === "Escape") resetCompose();
   }
 
   if (!messageId) return <EmptyState />;
 
   const config = PRIORITY_CONFIG[priority];
 
-  const styledBody = email?.body?.content
+  const bodyHtml = email?.body?.content || "";
+  const processedBody = showImages ? bodyHtml : blockExternalImages(bodyHtml);
+
+  const styledBody = processedBody
     ? `<style>
         * { color: #1a1a2e !important; background: transparent !important; font-family: system-ui, -apple-system, sans-serif !important; }
         body { margin: 0; padding: 16px; font-size: 14px; line-height: 1.65; }
@@ -183,7 +258,7 @@ export default function EmailPanel({
         pre, code { background: #f4f4f8 !important; padding: 2px 6px; border-radius: 3px; font-size: 13px; color: #607088 !important; }
         table { border-color: #e0e0e8 !important; }
         td, th { border-color: #e0e0e8 !important; padding: 4px 8px; }
-      </style>${email.body.content}`
+      </style>${processedBody}`
     : "";
 
   return (
@@ -196,16 +271,29 @@ export default function EmailPanel({
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-sm text-[#9a2828]">{error}</p>
-            <button
-              onClick={() => messageId && fetchEmail(messageId)}
-              className="mt-2 text-sm text-[#8090a8] hover:text-[#607088]"
-            >
+            <button onClick={() => messageId && fetchEmail(messageId)} className="mt-2 text-sm text-[#8090a8] hover:text-[#607088]">
               Try again
             </button>
           </div>
         </div>
       ) : email ? (
         <>
+          {/* Image blocking banner */}
+          {imagesBlocked && !showImages && (
+            <div className="px-6 py-2.5 bg-[#faf2e0] border-b-[0.5px] border-[#e8dcc0] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2 text-[12px] text-[#8a5a10]">
+                <ImageOff className="w-3.5 h-3.5" />
+                <span>External images are hidden for your privacy</span>
+              </div>
+              <button
+                onClick={() => setShowImages(true)}
+                className="text-[12px] font-medium text-[#a88830] hover:text-[#886810] transition-colors"
+              >
+                Load images
+              </button>
+            </div>
+          )}
+
           {/* Email header */}
           <div className="px-6 py-5 border-b-[0.5px] border-[#e0e0e8] shrink-0 bg-white">
             <div className="flex items-start justify-between gap-3 mb-3">
@@ -216,13 +304,8 @@ export default function EmailPanel({
                 <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${config.badgeStyle}`}>
                   {config.label}
                 </span>
-                <a
-                  href={email.webLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1 rounded text-[#9898b0] hover:text-[#607088] transition-colors"
-                  title="Open in Outlook"
-                >
+                <a href={email.webLink} target="_blank" rel="noopener noreferrer"
+                  className="p-1 rounded text-[#9898b0] hover:text-[#607088] transition-colors" title="Open in Outlook">
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
@@ -236,17 +319,11 @@ export default function EmailPanel({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <p className="text-[13px] font-medium text-[#1a1a2e]">
-                    {email.from.emailAddress.name}
-                  </p>
-                  <p className="text-[11px] text-[#9898b0] truncate">
-                    {email.from.emailAddress.address}
-                  </p>
+                  <p className="text-[13px] font-medium text-[#1a1a2e]">{email.from.emailAddress.name}</p>
+                  <p className="text-[11px] text-[#9898b0] truncate">{email.from.emailAddress.address}</p>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-[#9898b0]">
-                  <span>
-                    {format(new Date(email.receivedDateTime), "MMM d, yyyy 'at' h:mm a")}
-                  </span>
+                  <span>{format(new Date(email.receivedDateTime), "MMM d, yyyy 'at' h:mm a")}</span>
                   {email.toRecipients.length > 0 && (
                     <>
                       <span className="text-[#cacad8]">to</span>
@@ -262,16 +339,11 @@ export default function EmailPanel({
 
             {summary && (
               <div className="mt-3 px-3 py-2 bg-[#faf4e8] border-[0.5px] border-[#f0e8d0] rounded-md">
-                <p className="text-[10px] font-medium text-[#8a5a10] uppercase tracking-[0.08em] mb-0.5">
-                  AI Summary
-                </p>
-                <p className="text-[13px] text-[#5a5a72] leading-relaxed">
-                  {summary}
-                </p>
+                <p className="text-[10px] font-medium text-[#8a5a10] uppercase tracking-[0.08em] mb-0.5">AI Summary</p>
+                <p className="text-[13px] text-[#5a5a72] leading-relaxed">{summary}</p>
               </div>
             )}
 
-            {/* Attachments */}
             {attachments.length > 0 && (
               <div className="mt-3">
                 <p className="text-[10px] font-medium text-[#5a5a72] uppercase tracking-[0.08em] mb-1.5">
@@ -279,21 +351,15 @@ export default function EmailPanel({
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {attachments.map((att) => (
-                    <a
-                      key={att.id}
-                      href={`/api/emails/${email.id}/attachments?attachmentId=${att.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <a key={att.id} href={`/api/emails/${email.id}/attachments?attachmentId=${att.id}`}
+                      target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f4f4f8] border-[0.5px] border-[#e0e0e8] rounded-md text-[12px] text-[#5a5a72] hover:bg-[#eef0f6] hover:border-[#cacad8] hover:text-[#607088] transition-colors group"
-                      title={`${att.name} (${formatFileSize(att.size)})`}
-                    >
+                      title={`${att.name} (${formatFileSize(att.size)})`}>
                       <span className="text-[#9898b0] group-hover:text-[#8090a8] transition-colors">
                         {getFileIcon(att.contentType, att.name)}
                       </span>
                       <span className="truncate max-w-[160px]">{att.name}</span>
-                      <span className="text-[10px] text-[#9898b0] shrink-0">
-                        {formatFileSize(att.size)}
-                      </span>
+                      <span className="text-[10px] text-[#9898b0] shrink-0">{formatFileSize(att.size)}</span>
                     </a>
                   ))}
                 </div>
@@ -303,75 +369,73 @@ export default function EmailPanel({
 
           {/* Email body */}
           <div className="flex-1 overflow-y-auto bg-white">
-            <iframe
-              srcDoc={styledBody}
-              className="w-full h-full border-0"
-              sandbox="allow-same-origin"
-              title="Email content"
-              style={{ minHeight: "300px" }}
-            />
+            <iframe srcDoc={styledBody} className="w-full h-full border-0" sandbox="allow-same-origin" title="Email content" style={{ minHeight: "300px" }} />
           </div>
 
-          {/* Reply bar */}
+          {/* Action bar */}
           <div className="border-t-[0.5px] border-[#e0e0e8] shrink-0 bg-white">
-            {!showReply ? (
+            {!composeMode ? (
               <div className="flex items-center gap-2 px-6 py-3">
-                <button
-                  onClick={() => { setReplyAll(false); setShowReply(true); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a88830] text-white text-[13px] font-medium rounded-md hover:bg-[#886810] transition-colors"
-                >
-                  <Reply className="w-3.5 h-3.5" />
-                  Reply
+                <button onClick={() => setComposeMode("reply")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a88830] text-white text-[13px] font-medium rounded-md hover:bg-[#886810] transition-colors">
+                  <Reply className="w-3.5 h-3.5" /> Reply
                 </button>
                 {(email.toRecipients.length > 1 || (email.ccRecipients?.length ?? 0) > 0) && (
-                  <button
-                    onClick={() => { setReplyAll(true); setShowReply(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#eef0f6] text-[#607088] text-[13px] font-medium rounded-md border-[0.5px] border-[#cacad8] hover:bg-[#e0e4ec] transition-colors"
-                  >
-                    <ReplyAll className="w-3.5 h-3.5" />
-                    Reply All
+                  <button onClick={() => setComposeMode("replyAll")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#eef0f6] text-[#607088] text-[13px] font-medium rounded-md border-[0.5px] border-[#cacad8] hover:bg-[#e0e4ec] transition-colors">
+                    <ReplyAll className="w-3.5 h-3.5" /> Reply All
                   </button>
                 )}
+                <button onClick={() => setComposeMode("forward")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#eef0f6] text-[#607088] text-[13px] font-medium rounded-md border-[0.5px] border-[#cacad8] hover:bg-[#e0e4ec] transition-colors">
+                  <Forward className="w-3.5 h-3.5" /> Forward
+                </button>
               </div>
             ) : (
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-medium text-[#5a5a72] uppercase tracking-[0.08em]">
-                    {replyAll ? "Reply All" : "Reply"} to {email.from.emailAddress.name}
+                    {composeMode === "forward"
+                      ? "Forward"
+                      : composeMode === "replyAll"
+                        ? "Reply All"
+                        : "Reply"}{" "}
+                    {composeMode !== "forward" && `to ${email.from.emailAddress.name}`}
                   </span>
-                  <button
-                    onClick={() => { setShowReply(false); setReplyText(""); }}
-                    className="text-[11px] text-[#9898b0] hover:text-[#1a1a2e] transition-colors"
-                  >
+                  <button onClick={resetCompose} className="text-[11px] text-[#9898b0] hover:text-[#1a1a2e] transition-colors">
                     Cancel
                   </button>
                 </div>
+
+                {composeMode === "forward" && (
+                  <input
+                    type="text"
+                    placeholder="To: email@example.com (comma-separated)"
+                    value={forwardTo}
+                    onChange={(e) => setForwardTo(e.target.value)}
+                    className="w-full bg-white border-[0.5px] border-[#cacad8] rounded-lg px-4 py-2.5 text-[14px] text-[#1a1a2e] placeholder-[#9898b0] focus:border-[#8090a8] focus:outline-none mb-2 transition-colors"
+                  />
+                )}
+
                 <textarea
-                  ref={replyRef}
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
+                  ref={composeRef}
+                  value={composeText}
+                  onChange={(e) => setComposeText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Write your reply..."
-                  rows={4}
+                  placeholder={composeMode === "forward" ? "Add a note (optional)..." : "Write your reply..."}
+                  rows={3}
                   className="w-full bg-white border-[0.5px] border-[#cacad8] rounded-lg px-4 py-3 text-[14px] text-[#1a1a2e] placeholder-[#9898b0] focus:border-[#8090a8] focus:outline-none resize-none leading-relaxed transition-colors"
                 />
+
                 <div className="flex items-center justify-between mt-2">
                   <p className="text-[10px] text-[#9898b0]">
                     {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to send
                   </p>
-                  <button
-                    onClick={handleSendReply}
-                    disabled={sending || !replyText.trim()}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#a88830] text-white text-[13px] font-medium rounded-md hover:bg-[#886810] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {sending ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : sent ? (
-                      <CheckCircle className="w-3.5 h-3.5" />
-                    ) : (
-                      <Send className="w-3.5 h-3.5" />
-                    )}
-                    {sending ? "Sending..." : sent ? "Sent!" : "Send"}
+                  <button onClick={handleSend}
+                    disabled={sending || (composeMode === "forward" ? !forwardTo.trim() : !composeText.trim())}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#a88830] text-white text-[13px] font-medium rounded-md hover:bg-[#886810] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : sent ? <CheckCircle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+                    {sending ? "Sending..." : sent ? "Sent!" : composeMode === "forward" ? "Forward" : "Send"}
                   </button>
                 </div>
               </div>
