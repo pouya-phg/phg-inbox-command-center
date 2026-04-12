@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { ExternalLink, CheckCircle, Paperclip } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import type { Email } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 
@@ -10,7 +10,6 @@ interface EmailCardProps {
   selected: boolean;
   isActive: boolean;
   onToggleSelect: (messageId: string) => void;
-  onMarkRead: (messageId: string) => void;
   onOpen: (email: Email) => void;
 }
 
@@ -19,7 +18,6 @@ export default function EmailCard({
   selected,
   isActive,
   onToggleSelect,
-  onMarkRead,
   onOpen,
 }: EmailCardProps) {
   const config = PRIORITY_CONFIG[email.priority];
@@ -27,12 +25,12 @@ export default function EmailCard({
   return (
     <div
       onClick={() => onOpen(email)}
-      className={`rounded-[10px] p-4 transition-all duration-150 cursor-pointer ${
+      className={`px-4 py-3 cursor-pointer transition-all duration-100 border-b-[0.5px] border-[#e0e0e8] ${
         isActive
-          ? "bg-[#162420] border-[0.5px] border-[#c8a040]/30"
-          : config.cardStyle
-      } ${email.is_read ? "opacity-50" : ""} ${
-        selected && !isActive ? "ring-2 ring-[#c8a040]/40" : ""
+          ? "bg-[#eef0f6] border-l-2 border-l-[#8090a8]"
+          : "bg-white hover:bg-[#f7f7f9] border-l-2 border-l-transparent"
+      } ${email.is_read ? "opacity-55" : ""} ${
+        selected ? "bg-[#eef0f6]" : ""
       }`}
     >
       <div className="flex items-start gap-3">
@@ -44,67 +42,43 @@ export default function EmailCard({
             onToggleSelect(email.message_id);
           }}
           onClick={(e) => e.stopPropagation()}
-          className="mt-1 h-4 w-4 rounded border-[#264038] bg-[#111c18] text-[#c8a040] cursor-pointer shrink-0 accent-[#c8a040]"
+          className="mt-1 h-3.5 w-3.5 rounded border-[#cacad8] bg-white text-[#8090a8] cursor-pointer shrink-0 accent-[#8090a8]"
         />
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span
-              className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.badgeStyle}`}
-            >
-              {config.label}
+          <div className="flex items-center justify-between gap-2 mb-0.5">
+            <p className="text-[13px] font-medium text-[#1a1a2e] truncate">
+              {email.sender?.split("@")[0] || email.sender}
+            </p>
+            <span className="text-[10px] text-[#9898b0] whitespace-nowrap shrink-0">
+              {formatDistanceToNow(new Date(email.received_at), {
+                addSuffix: true,
+              })}
             </span>
-            {email.has_attachments && (
-              <Paperclip className="w-3 h-3 text-[#6e6858]" />
-            )}
+          </div>
+          <div className="flex items-center gap-1.5 mb-0.5">
             {!email.is_read && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#c8a040]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8090a8] shrink-0" />
+            )}
+            <h3 className="text-[13px] text-[#1a1a2e] truncate font-normal">
+              {email.subject || "(No Subject)"}
+            </h3>
+            {email.has_attachments && (
+              <Paperclip className="w-3 h-3 text-[#9898b0] shrink-0" />
             )}
           </div>
-          <h3 className="font-medium text-[#f0ece4] truncate text-sm">
-            {email.subject || "(No Subject)"}
-          </h3>
-          <p className="text-xs text-[#6e6858] mt-0.5">{email.sender}</p>
           {email.summary && (
-            <p className="text-[13px] text-[#b0a890] mt-1.5 line-clamp-1 leading-relaxed">
+            <p className="text-[12px] text-[#9898b0] truncate leading-relaxed">
               {email.summary}
             </p>
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <span className="text-[10px] text-[#6e6858] whitespace-nowrap">
-            {formatDistanceToNow(new Date(email.received_at), {
-              addSuffix: true,
-            })}
-          </span>
-          <div className="flex gap-1">
-            {email.web_link && (
-              <a
-                href={email.web_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="p-1.5 rounded-md text-[#6e6858] hover:text-[#c8a040] hover:bg-[#162420] transition-colors"
-                title="Open in Outlook"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
-            {!email.is_read && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMarkRead(email.message_id);
-                }}
-                className="p-1.5 rounded-md text-[#6e6858] hover:text-[#60c880] hover:bg-[#0c2018] transition-colors"
-                title="Mark as read"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
+        <span
+          className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full shrink-0 mt-0.5 ${config.badgeStyle}`}
+        >
+          {config.label}
+        </span>
       </div>
     </div>
   );

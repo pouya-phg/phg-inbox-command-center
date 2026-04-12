@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 import {
-  X,
   ExternalLink,
   Reply,
   ReplyAll,
@@ -11,6 +10,7 @@ import {
   Paperclip,
   CheckCircle,
   Loader2,
+  Inbox,
 } from "lucide-react";
 import type { Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
@@ -29,22 +29,41 @@ interface GraphEmail {
 }
 
 interface EmailPanelProps {
-  messageId: string;
+  messageId: string | null;
   priority: Priority;
   summary: string | null;
-  onClose: () => void;
   onMarkRead: (messageId: string) => void;
+}
+
+function EmptyState() {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 rounded-full bg-[#eef0f6] flex items-center justify-center mx-auto mb-4">
+          <Inbox className="w-7 h-7 text-[#8090a8]" />
+        </div>
+        <p className="text-[15px] font-medium text-[#1a1a2e] mb-1">
+          Select an email
+        </p>
+        <p className="text-[13px] text-[#9898b0]">
+          Click any email on the left to read it here
+        </p>
+        <p className="text-[11px] text-[#cacad8] mt-3">
+          J/K or arrows to navigate
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function EmailPanel({
   messageId,
   priority,
   summary,
-  onClose,
   onMarkRead,
 }: EmailPanelProps) {
   const [email, setEmail] = useState<GraphEmail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReply, setShowReply] = useState(false);
   const [replyAll, setReplyAll] = useState(false);
@@ -52,37 +71,31 @@ export default function EmailPanel({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const replyRef = useRef<HTMLTextAreaElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchEmail();
+    if (messageId) {
+      fetchEmail(messageId);
+      setShowReply(false);
+      setReplyText("");
+      setSent(false);
+    } else {
+      setEmail(null);
+    }
   }, [messageId]);
 
   useEffect(() => {
-    function handleEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [onClose]);
-
-  useEffect(() => {
-    if (showReply && replyRef.current) {
-      replyRef.current.focus();
-    }
+    if (showReply && replyRef.current) replyRef.current.focus();
   }, [showReply]);
 
-  async function fetchEmail() {
+  async function fetchEmail(id: string) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/emails/${messageId}`);
+      const res = await fetch(`/api/emails/${id}`);
       if (!res.ok) throw new Error("Failed to load email");
       const data = await res.json();
       setEmail(data);
-      if (!data.isRead) {
-        onMarkRead(messageId);
-      }
+      if (!data.isRead) onMarkRead(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     }
@@ -96,19 +109,12 @@ export default function EmailPanel({
       const res = await fetch("/api/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messageId: email.id,
-          comment: replyText,
-          replyAll,
-        }),
+        body: JSON.stringify({ messageId: email.id, comment: replyText, replyAll }),
       });
       if (!res.ok) throw new Error("Failed to send");
       setSent(true);
       setReplyText("");
-      setTimeout(() => {
-        setSent(false);
-        setShowReply(false);
-      }, 2000);
+      setTimeout(() => { setSent(false); setShowReply(false); }, 2000);
     } catch {
       setError("Failed to send reply");
     }
@@ -120,258 +126,194 @@ export default function EmailPanel({
       e.preventDefault();
       handleSendReply();
     }
+    if (e.key === "Escape") {
+      setShowReply(false);
+      setReplyText("");
+    }
   }
+
+  if (!messageId) return <EmptyState />;
 
   const config = PRIORITY_CONFIG[priority];
 
-  // Inject dark theme styles into email body
   const styledBody = email?.body?.content
     ? `<style>
-        * { color: #f0ece4 !important; background: transparent !important; font-family: system-ui, -apple-system, sans-serif !important; }
-        body { margin: 0; padding: 0; font-size: 14px; line-height: 1.6; }
-        a { color: #c8a040 !important; }
+        * { color: #1a1a2e !important; background: transparent !important; font-family: system-ui, -apple-system, sans-serif !important; }
+        body { margin: 0; padding: 16px; font-size: 14px; line-height: 1.65; }
+        a { color: #607088 !important; text-decoration: underline; }
         img { max-width: 100%; height: auto; border-radius: 4px; }
-        table { border-color: #1e3028 !important; }
-        td, th { border-color: #1e3028 !important; }
-        blockquote { border-left: 2px solid #264038 !important; padding-left: 12px; margin-left: 0; opacity: 0.7; }
-        hr { border-color: #1e3028 !important; }
-        pre, code { background: #0f1a16 !important; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+        blockquote { border-left: 2px solid #cacad8 !important; padding-left: 12px; margin-left: 0; color: #5a5a72 !important; }
+        hr { border: none; border-top: 0.5px solid #e0e0e8; }
+        pre, code { background: #f4f4f8 !important; padding: 2px 6px; border-radius: 3px; font-size: 13px; color: #607088 !important; }
+        table { border-color: #e0e0e8 !important; }
+        td, th { border-color: #e0e0e8 !important; padding: 4px 8px; }
       </style>${email.body.content}`
     : "";
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40 lg:hidden"
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        className="fixed right-0 top-0 bottom-0 w-full lg:w-[56%] xl:w-[52%] z-50 bg-[#0f1a16] border-l-[0.5px] border-[#1e3028] flex flex-col animate-in slide-in-from-right duration-200"
-        style={{
-          animation: "slideIn 200ms ease-out",
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b-[0.5px] border-[#1e3028] shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <span
-              className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${config.badgeStyle}`}
-            >
-              {config.label}
-            </span>
-            {email && (
-              <a
-                href={email.webLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#6e6858] hover:text-[#c8a040] transition-colors shrink-0"
-                title="Open in Outlook"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-md text-[#6e6858] hover:text-[#f0ece4] hover:bg-[#162420] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-5 h-5 text-[#8090a8] animate-spin" />
         </div>
-
-        {/* Content */}
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="w-6 h-6 text-[#c8a040] animate-spin mx-auto mb-3" />
-              <p className="text-sm text-[#6e6858]">Loading email...</p>
-            </div>
+      ) : error ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm text-[#9a2828]">{error}</p>
+            <button
+              onClick={() => messageId && fetchEmail(messageId)}
+              className="mt-2 text-sm text-[#8090a8] hover:text-[#607088]"
+            >
+              Try again
+            </button>
           </div>
-        ) : error ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm text-[#c06858]">{error}</p>
-              <button
-                onClick={fetchEmail}
-                className="mt-3 text-sm text-[#c8a040] hover:text-[#a88030]"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        ) : email ? (
-          <>
-            {/* Email header */}
-            <div className="px-6 py-5 border-b-[0.5px] border-[#1e3028] shrink-0">
-              <h2 className="text-lg font-medium text-[#f0ece4] leading-tight mb-3">
+        </div>
+      ) : email ? (
+        <>
+          {/* Email header */}
+          <div className="px-6 py-5 border-b-[0.5px] border-[#e0e0e8] shrink-0 bg-white">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h2 className="text-[17px] font-medium text-[#1a1a2e] leading-snug">
                 {email.subject || "(No Subject)"}
               </h2>
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-[rgba(200,160,64,0.15)] flex items-center justify-center shrink-0">
-                      <span className="text-xs font-medium text-[#c8a040]">
-                        {email.from.emailAddress.name?.[0]?.toUpperCase() || "?"}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#f0ece4] truncate">
-                        {email.from.emailAddress.name}
-                      </p>
-                      <p className="text-xs text-[#6e6858] truncate">
-                        {email.from.emailAddress.address}
-                      </p>
-                    </div>
-                  </div>
-                  {email.toRecipients.length > 0 && (
-                    <p className="text-xs text-[#6e6858] mt-2 truncate">
-                      <span className="text-[#b0a890]">To:</span>{" "}
-                      {email.toRecipients
-                        .map((r) => r.emailAddress.name || r.emailAddress.address)
-                        .join(", ")}
-                    </p>
-                  )}
-                  {email.ccRecipients?.length > 0 && (
-                    <p className="text-xs text-[#6e6858] mt-0.5 truncate">
-                      <span className="text-[#b0a890]">Cc:</span>{" "}
-                      {email.ccRecipients
-                        .map((r) => r.emailAddress.name || r.emailAddress.address)
-                        .join(", ")}
-                    </p>
-                  )}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${config.badgeStyle}`}>
+                  {config.label}
+                </span>
+                <a
+                  href={email.webLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1 rounded text-[#9898b0] hover:text-[#607088] transition-colors"
+                  title="Open in Outlook"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#eef0f6] flex items-center justify-center shrink-0">
+                <span className="text-[11px] font-medium text-[#607088]">
+                  {email.from.emailAddress.name?.[0]?.toUpperCase() || "?"}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-[13px] font-medium text-[#1a1a2e]">
+                    {email.from.emailAddress.name}
+                  </p>
+                  <p className="text-[11px] text-[#9898b0] truncate">
+                    {email.from.emailAddress.address}
+                  </p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-[#6e6858]">
-                    {format(new Date(email.receivedDateTime), "MMM d, yyyy")}
-                  </p>
-                  <p className="text-[10px] text-[#6e6858] mt-0.5">
-                    {format(new Date(email.receivedDateTime), "h:mm a")}
-                  </p>
-                  {email.hasAttachments && (
-                    <Paperclip className="w-3 h-3 text-[#6e6858] mt-1 ml-auto" />
+                <div className="flex items-center gap-2 text-[11px] text-[#9898b0]">
+                  <span>
+                    {format(new Date(email.receivedDateTime), "MMM d, yyyy 'at' h:mm a")}
+                  </span>
+                  {email.toRecipients.length > 0 && (
+                    <>
+                      <span className="text-[#cacad8]">to</span>
+                      <span className="truncate">
+                        {email.toRecipients.map((r) => r.emailAddress.name || r.emailAddress.address).join(", ")}
+                      </span>
+                    </>
                   )}
+                  {email.hasAttachments && <Paperclip className="w-3 h-3" />}
                 </div>
               </div>
-
-              {/* AI Summary */}
-              {summary && (
-                <div className="mt-3 px-3 py-2 bg-[rgba(200,160,64,0.08)] border-[0.5px] border-[rgba(200,160,64,0.15)] rounded-md">
-                  <p className="text-[10px] font-medium text-[#c8a040] uppercase tracking-[0.08em] mb-1">
-                    AI Summary
-                  </p>
-                  <p className="text-sm text-[#b0a890] leading-relaxed">
-                    {summary}
-                  </p>
-                </div>
-              )}
             </div>
 
-            {/* Email body */}
-            <div className="flex-1 overflow-y-auto">
-              <iframe
-                srcDoc={styledBody}
-                className="w-full h-full border-0"
-                sandbox="allow-same-origin"
-                title="Email content"
-                style={{ minHeight: "300px", background: "transparent" }}
-              />
-            </div>
+            {summary && (
+              <div className="mt-3 px-3 py-2 bg-[#faf4e8] border-[0.5px] border-[#f0e8d0] rounded-md">
+                <p className="text-[10px] font-medium text-[#8a5a10] uppercase tracking-[0.08em] mb-0.5">
+                  AI Summary
+                </p>
+                <p className="text-[13px] text-[#5a5a72] leading-relaxed">
+                  {summary}
+                </p>
+              </div>
+            )}
+          </div>
 
-            {/* Reply bar */}
-            <div className="border-t-[0.5px] border-[#1e3028] shrink-0">
-              {!showReply ? (
-                <div className="flex items-center gap-2 px-6 py-3">
+          {/* Email body */}
+          <div className="flex-1 overflow-y-auto bg-white">
+            <iframe
+              srcDoc={styledBody}
+              className="w-full h-full border-0"
+              sandbox="allow-same-origin"
+              title="Email content"
+              style={{ minHeight: "300px" }}
+            />
+          </div>
+
+          {/* Reply bar */}
+          <div className="border-t-[0.5px] border-[#e0e0e8] shrink-0 bg-white">
+            {!showReply ? (
+              <div className="flex items-center gap-2 px-6 py-3">
+                <button
+                  onClick={() => { setReplyAll(false); setShowReply(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a88830] text-white text-[13px] font-medium rounded-md hover:bg-[#886810] transition-colors"
+                >
+                  <Reply className="w-3.5 h-3.5" />
+                  Reply
+                </button>
+                {(email.toRecipients.length > 1 || (email.ccRecipients?.length ?? 0) > 0) && (
                   <button
-                    onClick={() => {
-                      setReplyAll(false);
-                      setShowReply(true);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#c8a040] text-white text-sm font-medium rounded-md hover:bg-[#a88030] transition-colors"
+                    onClick={() => { setReplyAll(true); setShowReply(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#eef0f6] text-[#607088] text-[13px] font-medium rounded-md border-[0.5px] border-[#cacad8] hover:bg-[#e0e4ec] transition-colors"
                   >
-                    <Reply className="w-4 h-4" />
-                    Reply
+                    <ReplyAll className="w-3.5 h-3.5" />
+                    Reply All
                   </button>
-                  {email.toRecipients.length > 1 ||
-                  (email.ccRecipients?.length ?? 0) > 0 ? (
-                    <button
-                      onClick={() => {
-                        setReplyAll(true);
-                        setShowReply(true);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-[rgba(200,160,64,0.12)] text-[#c8a040] text-sm font-medium rounded-md border-[0.5px] border-[#264038] hover:bg-[rgba(200,160,64,0.20)] transition-colors"
-                    >
-                      <ReplyAll className="w-4 h-4" />
-                      Reply All
-                    </button>
-                  ) : null}
+                )}
+              </div>
+            ) : (
+              <div className="px-6 py-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-medium text-[#5a5a72] uppercase tracking-[0.08em]">
+                    {replyAll ? "Reply All" : "Reply"} to {email.from.emailAddress.name}
+                  </span>
+                  <button
+                    onClick={() => { setShowReply(false); setReplyText(""); }}
+                    className="text-[11px] text-[#9898b0] hover:text-[#1a1a2e] transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              ) : (
-                <div className="px-6 py-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-medium text-[#b0a890] uppercase tracking-[0.08em]">
-                      {replyAll ? "Reply All" : "Reply"} to{" "}
-                      {email.from.emailAddress.name}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setShowReply(false);
-                        setReplyText("");
-                      }}
-                      className="ml-auto text-xs text-[#6e6858] hover:text-[#f0ece4] transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  <textarea
-                    ref={replyRef}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Write your reply..."
-                    rows={4}
-                    className="w-full bg-[#111c18] border-[0.5px] border-[#264038] rounded-lg px-4 py-3 text-sm text-[#f0ece4] placeholder-[#6e6858] focus:border-[#c8a040] focus:outline-none resize-none leading-relaxed transition-colors"
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-[10px] text-[#6e6858]">
-                      {navigator.platform?.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to
-                      send
-                    </p>
-                    <button
-                      onClick={handleSendReply}
-                      disabled={sending || !replyText.trim()}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#c8a040] text-white text-sm font-medium rounded-md hover:bg-[#a88030] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {sending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : sent ? (
-                        <CheckCircle className="w-4 h-4" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                      {sending ? "Sending..." : sent ? "Sent!" : "Send"}
-                    </button>
-                  </div>
+                <textarea
+                  ref={replyRef}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Write your reply..."
+                  rows={4}
+                  className="w-full bg-white border-[0.5px] border-[#cacad8] rounded-lg px-4 py-3 text-[14px] text-[#1a1a2e] placeholder-[#9898b0] focus:border-[#8090a8] focus:outline-none resize-none leading-relaxed transition-colors"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[10px] text-[#9898b0]">
+                    {typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to send
+                  </p>
+                  <button
+                    onClick={handleSendReply}
+                    disabled={sending || !replyText.trim()}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#a88830] text-white text-[13px] font-medium rounded-md hover:bg-[#886810] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {sending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : sent ? (
+                      <CheckCircle className="w-3.5 h-3.5" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    {sending ? "Sending..." : sent ? "Sent!" : "Send"}
+                  </button>
                 </div>
-              )}
-            </div>
-          </>
-        ) : null}
-      </div>
-
-      <style jsx global>{`
-        @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-      `}</style>
+              </div>
+            )}
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

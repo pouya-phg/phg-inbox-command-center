@@ -42,26 +42,26 @@ export const PRIORITY_CONFIG: Record<
 > = {
   p1: {
     label: "Needs Action",
-    textStyle: "text-[#c06858]",
-    badgeStyle: "bg-[#200c0c] text-[#c06858]",
-    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
+    textStyle: "text-[#9a2828]",
+    badgeStyle: "bg-[#faecec] text-[#9a2828]",
+    cardStyle: "bg-white border-[0.5px] border-[#e0e0e8] hover:bg-[#f7f7f9]",
   },
   p2: {
     label: "High Priority",
-    textStyle: "text-[#c89040]",
-    badgeStyle: "bg-[#1e1608] text-[#c89040]",
-    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
+    textStyle: "text-[#8a5a10]",
+    badgeStyle: "bg-[#faf2e0] text-[#8a5a10]",
+    cardStyle: "bg-white border-[0.5px] border-[#e0e0e8] hover:bg-[#f7f7f9]",
   },
   p3: {
     label: "Informational",
-    textStyle: "text-[#b0a890]",
-    badgeStyle: "bg-[rgba(255,255,255,0.06)] text-[#b0a890]",
-    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
+    textStyle: "text-[#607088]",
+    badgeStyle: "bg-[#eef0f6] text-[#607088]",
+    cardStyle: "bg-white border-[0.5px] border-[#e0e0e8] hover:bg-[#f7f7f9]",
   },
   noise: {
     label: "Noise",
-    textStyle: "text-[#6e6858]",
-    badgeStyle: "bg-[rgba(255,255,255,0.06)] text-[#6e6858]",
-    cardStyle: "bg-[#111c18] border-[0.5px] border-[#1e3028] hover:bg-[#162420]",
+    textStyle: "text-[#9898b0]",
+    badgeStyle: "bg-[#eeeef2] text-[#5a5a72]",
+    cardStyle: "bg-white border-[0.5px] border-[#e0e0e8] hover:bg-[#f7f7f9]",
   },
 };

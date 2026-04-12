@@ -4,29 +4,40 @@ import { getServerSession } from "next-auth";
 
 const ALLOWED_EMAIL = "phonari@pacifichospitality.com";
 
-// Store last error for the debug endpoint
-let lastAuthError: { code: string; detail: string; time: string } | null = null;
-export function getLastAuthError() {
-  return lastAuthError;
+async function refreshAccessToken(token: JWT): Promise<JWT> {
+  try {
+    const res = await fetch(
+      `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: process.env.AZURE_CLIENT_ID!,
+          client_secret: process.env.AZURE_CLIENT_SECRET!,
+          grant_type: "refresh_token",
+          refresh_token: token.refreshToken as string,
+          scope:
+            "openid profile email Mail.Read Mail.ReadWrite offline_access User.Read",
+        }),
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || "Refresh failed");
+
+    return {
+      ...token,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token ?? token.refreshToken,
+      expiresAt: Math.floor(Date.now() / 1000) + data.expires_in,
+    };
+  } catch (error) {
+    console.error("Token refresh failed:", error);
+    return { ...token, error: "RefreshAccessTokenError" };
+  }
 }
 
 export const authOptions: NextAuthOptions = {
-  debug: true,
-  logger: {
-    error(code, metadata) {
-      const detail = JSON.stringify(metadata, Object.getOwnPropertyNames(metadata), 2);
-      lastAuthError = { code: String(code), detail, time: new Date().toISOString() };
-      console.error("NEXTAUTH_FULL_ERROR:", code);
-      console.error("NEXTAUTH_FULL_ERROR_DETAIL:", detail.substring(0, 500));
-      console.error("NEXTAUTH_FULL_ERROR_DETAIL2:", detail.substring(500, 1000));
-    },
-    warn(code) {
-      console.warn("NEXTAUTH_WARN:", code);
-    },
-    debug(code, metadata) {
-      console.log("NEXTAUTH_DEBUG:", code);
-    },
-  },
   providers: [
     {
       id: "azure-ad",
@@ -35,7 +46,6 @@ export const authOptions: NextAuthOptions = {
       wellKnown: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration`,
       clientId: process.env.AZURE_CLIENT_ID!,
       clientSecret: process.env.AZURE_CLIENT_SECRET!,
-      // Only use state check — nonce and PKCE cause cookie issues on serverless
       checks: ["state"],
       idToken: true,
       authorization: {
@@ -49,9 +59,7 @@ export const authOptions: NextAuthOptions = {
           id: profile.sub || profile.oid,
           name: profile.name || profile.preferred_username,
           email:
-            profile.email ||
-            profile.preferred_username ||
-            profile.upn,
+            profile.email || profile.preferred_username || profile.upn,
         };
       },
     },
@@ -62,7 +70,6 @@ export const authOptions: NextAuthOptions = {
         user.email?.toLowerCase() ||
         (profile as any)?.preferred_username?.toLowerCase() ||
         (profile as any)?.upn?.toLowerCase();
-      console.log("SIGNIN_CALLBACK email:", email);
       return email === ALLOWED_EMAIL;
     },
     async jwt({ token, account, profile }) {
@@ -77,12 +84,21 @@ export const authOptions: NextAuthOptions = {
           (profile as any).preferred_username ||
           (profile as any).upn;
       }
+
+      // Refresh token if expired (with 5 min buffer)
+      if (token.expiresAt && Date.now() / 1000 > (token.expiresAt as number) - 300) {
+        return refreshAccessToken(token);
+      }
+
       return token;
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
       if (token.email && session.user) {
         session.user.email = token.email as string;
+      }
+      if (token.error) {
+        (session as any).error = token.error;
       }
       return session;
     },
@@ -102,10 +118,10 @@ export function isAuthorized(email: string | null | undefined): boolean {
   return email?.toLowerCase() === ALLOWED_EMAIL;
 }
 
-// Extend next-auth types
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
+    error?: string;
   }
 }
 
@@ -114,5 +130,6 @@ declare module "next-auth/jwt" {
     accessToken?: string;
     refreshToken?: string;
     expiresAt?: number;
+    error?: string;
   }
 }
