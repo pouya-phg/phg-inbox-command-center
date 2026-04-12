@@ -28,13 +28,11 @@ export default function Dashboard() {
   }, []);
 
   const fetchCounts = useCallback(async () => {
-    const results = await Promise.all(
-      TABS.map(async (p) => {
-        const res = await fetch(`/api/emails?priority=${p}&page=1`);
-        if (res.ok) { const data = await res.json(); return [p, data.total || 0] as [Priority, number]; }
-        return [p, 0] as [Priority, number];
-      })
-    );
+    const results = await Promise.all(TABS.map(async (p) => {
+      const res = await fetch(`/api/emails?priority=${p}&page=1`);
+      if (res.ok) { const data = await res.json(); return [p, data.total || 0] as [Priority, number]; }
+      return [p, 0] as [Priority, number];
+    }));
     setCounts(Object.fromEntries(results) as Record<Priority, number>);
   }, []);
 
@@ -53,105 +51,87 @@ export default function Dashboard() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [activeEmail, emails]);
 
-  function toggleSelect(messageId: string) {
-    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(messageId)) next.delete(messageId); else next.add(messageId); return next; });
-  }
-  function selectAll() {
-    if (selectedIds.size === emails.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(emails.map((e) => e.message_id)));
-  }
-  function handleMarkRead(messageId: string) {
-    fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageIds: [messageId] }) });
-    setEmails((prev) => prev.map((e) => (e.message_id === messageId ? { ...e, is_read: true } : e)));
-  }
-  async function handleBulkMarkRead() {
-    if (selectedIds.size === 0) return; setBulkActioning(true);
-    await fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageIds: Array.from(selectedIds) }) });
-    setEmails((prev) => prev.map((e) => (selectedIds.has(e.message_id) ? { ...e, is_read: true } : e)));
-    setSelectedIds(new Set()); fetchCounts(); setBulkActioning(false);
-  }
-  async function handleMarkAllNoiseRead() {
-    setMarkingAll(true);
-    await fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAll: true }) });
-    if (activeTab === "noise") setEmails((prev) => prev.map((e) => ({ ...e, is_read: true })));
-    setSelectedIds(new Set()); fetchCounts(); setMarkingAll(false);
-  }
+  function toggleSelect(messageId: string) { setSelectedIds((prev) => { const next = new Set(prev); if (next.has(messageId)) next.delete(messageId); else next.add(messageId); return next; }); }
+  function selectAll() { if (selectedIds.size === emails.length) setSelectedIds(new Set()); else setSelectedIds(new Set(emails.map((e) => e.message_id))); }
+  function handleMarkRead(messageId: string) { fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageIds: [messageId] }) }); setEmails((prev) => prev.map((e) => (e.message_id === messageId ? { ...e, is_read: true } : e))); }
+  async function handleBulkMarkRead() { if (selectedIds.size === 0) return; setBulkActioning(true); await fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageIds: Array.from(selectedIds) }) }); setEmails((prev) => prev.map((e) => (selectedIds.has(e.message_id) ? { ...e, is_read: true } : e))); setSelectedIds(new Set()); fetchCounts(); setBulkActioning(false); }
+  async function handleMarkAllNoiseRead() { setMarkingAll(true); await fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAll: true }) }); if (activeTab === "noise") setEmails((prev) => prev.map((e) => ({ ...e, is_read: true }))); setSelectedIds(new Set()); fetchCounts(); setMarkingAll(false); }
 
   const allSelected = emails.length > 0 && selectedIds.size === emails.length;
   const someSelected = selectedIds.size > 0;
   const unreadSelected = emails.filter((e) => selectedIds.has(e.message_id) && !e.is_read).length;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[#0c1014]">
-      {/* Sidebar */}
-      <div className="w-[180px] bg-[#0c1014] flex flex-col shrink-0">
-        <div className="px-4 py-4 border-b-[0.5px] border-[#181e22]">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-[rgba(180,138,70,0.16)] flex items-center justify-center">
-              <Mail className="w-3.5 h-3.5 text-[#b48a46]" />
+    <div className="h-screen flex overflow-hidden bg-[#080c10]">
+      {/* Sidebar — darkest layer */}
+      <div className="w-[200px] bg-[#0a0e12] flex flex-col shrink-0 border-r-[0.5px] border-[#1e242a]">
+        <div className="px-4 py-5 border-b-[0.5px] border-[#1e242a]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-[rgba(180,138,70,0.16)] flex items-center justify-center">
+              <Mail className="w-4 h-4 text-[#b48a46]" />
             </div>
-            <span className="text-[11px] font-medium text-[#c8ccd0]">PHG Inbox</span>
+            <span className="text-[14px] font-medium text-[#d0d4d8]">PHG Inbox</span>
           </div>
         </div>
 
-        <nav className="flex-1 px-2 pt-2">
+        <nav className="flex-1 px-2 pt-3">
           {TABS.map((tab) => {
             const tabConfig = PRIORITY_CONFIG[tab];
             const isActive = activeTab === tab;
             return (
               <button key={tab} onClick={() => { setActiveTab(tab); setActiveEmail(null); }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 mb-0.5 rounded-md text-[10px] font-medium transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 mb-1 rounded-md text-[13px] font-medium transition-colors ${
                   isActive
-                    ? "bg-[rgba(180,138,70,0.11)] text-[#b48a46]"
-                    : "text-[rgba(200,204,208,0.36)] hover:text-[rgba(200,204,208,0.55)] hover:bg-[rgba(255,255,255,0.02)]"
+                    ? "bg-[rgba(180,138,70,0.12)] text-[#b48a46]"
+                    : "text-[#606870] hover:text-[#a0a8b0] hover:bg-[rgba(255,255,255,0.03)]"
                 }`}>
                 <span>{tabConfig.label}</span>
-                <span className={`text-[8px] px-1.5 py-0.5 rounded-full ${
-                  isActive ? "bg-[rgba(180,138,70,0.18)] text-[#b48a46]" : "bg-[rgba(255,255,255,0.05)] text-[rgba(200,204,208,0.30)]"
+                <span className={`text-[11px] px-2 py-0.5 rounded-full ${
+                  isActive ? "bg-[rgba(180,138,70,0.18)] text-[#b48a46]" : "bg-[rgba(255,255,255,0.05)] text-[#505860]"
                 }`}>{counts[tab]}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="px-2 pb-3 border-t-[0.5px] border-[#181e22] pt-2">
-          <a href="/rules" className="flex items-center gap-2 px-3 py-1.5 text-[9px] text-[rgba(200,204,208,0.38)] hover:text-[rgba(200,204,208,0.60)] rounded-md transition-colors">
-            <Settings className="w-3 h-3" /> Rules
+        <div className="px-2 pb-4 border-t-[0.5px] border-[#1e242a] pt-3">
+          <a href="/rules" className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#606870] hover:text-[#a0a8b0] rounded-md transition-colors">
+            <Settings className="w-3.5 h-3.5" /> Rules
           </a>
         </div>
       </div>
 
-      {/* Email list */}
-      <div className="w-[340px] bg-[#101418] border-r-[0.5px] border-[#1c2226] flex flex-col shrink-0 overflow-hidden">
-        <div className="px-4 py-2.5 bg-[#0e1216] border-b-[0.5px] border-[#181e22]">
+      {/* Email list — mid layer */}
+      <div className="w-[380px] bg-[#141a20] border-r-[0.5px] border-[#1e242a] flex flex-col shrink-0 overflow-hidden">
+        <div className="px-4 py-3 bg-[#10161c] border-b-[0.5px] border-[#1e242a]">
           <SyncControls />
         </div>
-        <div className="px-4 py-2 border-b-[0.5px] border-[#1c2226] flex items-center gap-2 bg-[#0e1216]">
-          <button onClick={selectAll} className="flex items-center gap-1.5 text-[9px] text-[#505860] hover:text-[#8a9098] transition-colors">
-            {allSelected ? <CheckSquare className="w-3 h-3 text-[#b48a46]" /> : <Square className="w-3 h-3" />} All
+        <div className="px-4 py-2 border-b-[0.5px] border-[#1e242a] flex items-center gap-2 bg-[#10161c]">
+          <button onClick={selectAll} className="flex items-center gap-1.5 text-[12px] text-[#606870] hover:text-[#a0a8b0] transition-colors">
+            {allSelected ? <CheckSquare className="w-4 h-4 text-[#b48a46]" /> : <Square className="w-4 h-4" />} All
           </button>
-          {someSelected && <span className="text-[9px] text-[#b48a46]">{selectedIds.size}</span>}
+          {someSelected && <span className="text-[12px] text-[#b48a46] font-medium">{selectedIds.size}</span>}
           {someSelected && unreadSelected > 0 && (
             <button onClick={handleBulkMarkRead} disabled={bulkActioning}
-              className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-[#4a9868] bg-[#0a1c12] rounded transition-colors disabled:opacity-50">
-              <CheckCircle className="w-2.5 h-2.5" /> Read
+              className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-[#4a9868] bg-[#0a1c12] rounded transition-colors disabled:opacity-50">
+              <CheckCircle className="w-3 h-3" /> Read
             </button>
           )}
           {activeTab === "noise" && counts.noise > 0 && (
             <button onClick={handleMarkAllNoiseRead} disabled={markingAll}
-              className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-[#b06050] bg-[#1c0c0a] rounded transition-colors disabled:opacity-50 ml-auto">
-              <Trash2 className="w-2.5 h-2.5" /> {markingAll ? "..." : `All ${counts.noise}`}
+              className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-[#b06050] bg-[#1c0c0a] rounded transition-colors disabled:opacity-50 ml-auto">
+              <Trash2 className="w-3 h-3" /> {markingAll ? "..." : `All ${counts.noise}`}
             </button>
           )}
         </div>
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="text-center py-16">
-              <div className="inline-block w-4 h-4 border-[1.5px] border-[#1c2226] border-t-[#b48a46] rounded-full animate-spin mb-2" />
-              <p className="text-[9px] text-[#505860]">Loading...</p>
+              <div className="inline-block w-5 h-5 border-2 border-[#2a3038] border-t-[#b48a46] rounded-full animate-spin mb-3" />
+              <p className="text-[12px] text-[#606870]">Loading...</p>
             </div>
           ) : emails.length === 0 ? (
-            <div className="text-center py-16 text-[#505860] text-[10px]">No emails here</div>
+            <div className="text-center py-16 text-[#606870] text-[13px]">No emails here</div>
           ) : (
             emails.map((email) => (
               <EmailCard key={email.id} email={email} selected={selectedIds.has(email.message_id)}
@@ -161,8 +141,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Reading pane */}
-      <div className="flex-1 flex flex-col bg-[#101418] overflow-hidden">
+      {/* Reading pane — lighter than sidebar, distinct from list */}
+      <div className="flex-1 flex flex-col bg-[#181e24] overflow-hidden">
         <EmailPanel messageId={activeEmail?.message_id || null} priority={activeEmail?.priority || "p3"}
           summary={activeEmail?.summary || null} onMarkRead={handleMarkRead} />
       </div>
