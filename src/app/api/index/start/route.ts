@@ -113,7 +113,8 @@ export async function POST(req: NextRequest) {
   const folderQueue: string[] = [];
 
   while (nextLink && Date.now() - startTime < 260000) {
-    const res = await fetch(nextLink, {
+    const currentUrl: string = nextLink;
+    const res: Response = await fetch(currentUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
