@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trash2, CheckSquare, Square, CheckCircle, Mail, Settings, Sparkles, Loader2 as Spinner } from "lucide-react";
+import { Trash2, CheckSquare, Square, CheckCircle, Mail, Settings, Sparkles, Loader2 as Spinner, Database } from "lucide-react";
 import type { Email, Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 import EmailCard from "./EmailCard";
@@ -21,6 +21,8 @@ export default function Dashboard() {
   const [activeEmail, setActiveEmail] = useState<Email | null>(null);
   const [batchDrafting, setBatchDrafting] = useState(false);
   const [batchResult, setBatchResult] = useState<string | null>(null);
+  const [indexing, setIndexing] = useState(false);
+  const [indexResult, setIndexResult] = useState<string | null>(null);
 
   const fetchEmails = useCallback(async (priority: Priority) => {
     setLoading(true); setSelectedIds(new Set());
@@ -114,6 +116,28 @@ export default function Dashboard() {
             {batchDrafting ? "Drafting..." : "Draft P1+P2"}
           </button>
           {batchResult && <p className="px-3 text-[10px] text-[#606870]">{batchResult}</p>}
+          <button
+            onClick={async () => {
+              setIndexing(true); setIndexResult("Starting...");
+              try {
+                const res = await fetch("/api/index/start", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ folder: "Documents" }),
+                });
+                if (res.ok) { const d = await res.json(); setIndexResult(`${d.documents} docs, ${d.chunks} chunks`); }
+                else { setIndexResult("Error — check logs"); }
+              } catch { setIndexResult("Error"); }
+              setIndexing(false);
+              setTimeout(() => setIndexResult(null), 10000);
+            }}
+            disabled={indexing}
+            className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-[#8a9098] hover:bg-[rgba(255,255,255,0.03)] hover:text-[#d0d4d8] rounded-md transition-colors disabled:opacity-50"
+          >
+            {indexing ? <Spinner className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+            {indexing ? "Indexing..." : "Index OneDrive"}
+          </button>
+          {indexResult && <p className="px-3 text-[10px] text-[#606870]">{indexResult}</p>}
           <a href="/rules" className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#606870] hover:text-[#a0a8b0] rounded-md transition-colors">
             <Settings className="w-3.5 h-3.5" /> Rules
           </a>
