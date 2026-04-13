@@ -29,10 +29,12 @@ export async function extractText(
       return convert(buffer.toString("utf-8"), { wordwrap: false });
     }
 
-    // PDF — import the library implementation file directly to avoid
-    // pdf-parse's index.js test-file bug that breaks serverless bundling
+    // PDF — use eval('require') to bypass the bundler (pdf-parse's
+    // index.js references a test file that doesn't exist in serverless builds)
     if (mimeType === "application/pdf" || name.endsWith(".pdf")) {
-      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const req = eval("require") as (m: string) => any;
+      const pdfParse = req("pdf-parse/lib/pdf-parse.js");
       const data = await pdfParse(buffer);
       return data.text;
     }
