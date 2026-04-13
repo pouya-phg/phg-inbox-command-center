@@ -79,6 +79,14 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   let totalDocs = 0;
   let totalChunks = 0;
+  let filesSkippedAlreadyIndexed = 0;
+  let filesSkippedUnsupported = 0;
+
+  // Resume-aware: start where we left off by using the most recently indexed
+  // document's lastModifiedDateTime and continuing from the last folder path.
+  // For simplicity, we just restart the BFS — "already indexed" check
+  // (via drive_item_id) makes this fast since we skip already-done files.
+
   let nextLink: string | null = folder
     ? `https://graph.microsoft.com/v1.0/me/drive/root:/${folder}:/children?$top=100&$select=id,name,file,parentReference,size,lastModifiedDateTime`
     : `https://graph.microsoft.com/v1.0/me/drive/root/children?$top=100&$select=id,name,file,parentReference,size,lastModifiedDateTime`;
@@ -106,8 +114,14 @@ export async function POST(req: NextRequest) {
       // Skip non-indexable files
       const mime = item.file?.mimeType || "";
       const name = item.name || "";
-      if (!INDEXABLE_TYPES.has(mime) && !name.match(INDEXABLE_EXTENSIONS)) continue;
-      if (item.size > 50 * 1024 * 1024) continue; // Skip files > 50MB
+      if (!INDEXABLE_TYPES.has(mime) && !name.match(INDEXABLE_EXTENSIONS)) {
+        filesSkippedUnsupported++;
+        continue;
+      }
+      if (item.size > 50 * 1024 * 1024) {
+        filesSkippedUnsupported++;
+        continue;
+      }
 
       const path =
         item.parentReference?.path?.replace("/drive/root:", "") + "/" + name;
@@ -119,7 +133,10 @@ export async function POST(req: NextRequest) {
         .eq("drive_item_id", item.id)
         .single();
 
-      if (existing) continue;
+      if (existing) {
+        filesSkippedAlreadyIndexed++;
+        continue;
+      }
 
       // Try to extract text content
       const content = await getFileContent(accessToken, item.id, mime, name);
@@ -197,21 +214,33 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // If we exited the loop with work still queued, more files remain
+  const hasMore = Boolean(nextLink) || folderQueue.length > 0;
+
+  // Get total count of indexed documents
+  const { count: totalIndexed } = await supabase
+    .from("documents")
+    .select("*", { count: "exact", head: true });
+
   // Update state
   await supabase
     .from("index_state")
     .update({
       last_indexed_at: new Date().toISOString(),
-      total_documents: totalDocs,
-      total_chunks: totalChunks,
+      total_documents: totalIndexed || 0,
       status: "idle",
     })
     .not("id", "is", null);
 
   return NextResponse.json({
-    status: "complete",
-    documents: totalDocs,
-    chunks: totalChunks,
+    status: hasMore ? "partial" : "complete",
+    has_more: hasMore,
+    new_documents: totalDocs,
+    new_chunks: totalChunks,
+    total_indexed: totalIndexed || 0,
+    skipped_already_indexed: filesSkippedAlreadyIndexed,
+    skipped_unsupported: filesSkippedUnsupported,
+    remaining_folder_queue: folderQueue.length,
     elapsed_ms: Date.now() - startTime,
   });
 }

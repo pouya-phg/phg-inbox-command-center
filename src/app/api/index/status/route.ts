@@ -10,11 +10,33 @@ export async function GET() {
 
   const supabase = getSupabaseAdmin();
 
-  const { data } = await supabase
+  // Live counts from documents table
+  const { count: docCount } = await supabase
+    .from("documents")
+    .select("*", { count: "exact", head: true });
+
+  const { count: chunkCount } = await supabase
+    .from("document_chunks")
+    .select("*", { count: "exact", head: true });
+
+  const { data: state } = await supabase
     .from("index_state")
     .select("*")
     .limit(1)
     .single();
 
-  return NextResponse.json(data || { status: "idle", total_documents: 0, total_chunks: 0 });
+  // Most recent indexed doc — helps user see where the indexer is
+  const { data: recent } = await supabase
+    .from("documents")
+    .select("name, path, indexed_at")
+    .order("indexed_at", { ascending: false })
+    .limit(5);
+
+  return NextResponse.json({
+    status: state?.status || "idle",
+    last_indexed_at: state?.last_indexed_at,
+    total_documents: docCount || 0,
+    total_chunks: chunkCount || 0,
+    recent_documents: recent || [],
+  });
 }

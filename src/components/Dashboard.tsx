@@ -125,11 +125,20 @@ export default function Dashboard() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ folder: "Documents" }),
                 });
-                if (res.ok) { const d = await res.json(); setIndexResult(`${d.documents} docs, ${d.chunks} chunks`); }
-                else { setIndexResult("Error — check logs"); }
+                if (res.ok) {
+                  const d = await res.json();
+                  const parts = [];
+                  parts.push(`+${d.new_documents} new`);
+                  if (d.skipped_already_indexed > 0) parts.push(`${d.skipped_already_indexed} already done`);
+                  parts.push(`${d.total_indexed} total`);
+                  const summary = parts.join(" · ");
+                  setIndexResult(d.has_more ? `${summary} · click to continue` : `${summary} · ✓ complete`);
+                } else {
+                  setIndexResult("Error — check logs");
+                }
               } catch { setIndexResult("Error"); }
               setIndexing(false);
-              setTimeout(() => setIndexResult(null), 10000);
+              setTimeout(() => setIndexResult(null), 30000);
             }}
             disabled={indexing}
             className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-[#8a9098] hover:bg-[rgba(255,255,255,0.03)] hover:text-[#d0d4d8] rounded-md transition-colors disabled:opacity-50"
@@ -137,7 +146,7 @@ export default function Dashboard() {
             {indexing ? <Spinner className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
             {indexing ? "Indexing..." : "Index OneDrive"}
           </button>
-          {indexResult && <p className="px-3 text-[10px] text-[#606870]">{indexResult}</p>}
+          {indexResult && <p className="px-3 text-[10px] text-[#606870] leading-relaxed">{indexResult}</p>}
           <a href="/rules" className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#606870] hover:text-[#a0a8b0] rounded-md transition-colors">
             <Settings className="w-3.5 h-3.5" /> Rules
           </a>
