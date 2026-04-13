@@ -36,6 +36,19 @@ export interface SyncState {
   nightly_sync_enabled: boolean;
 }
 
+export interface DraftReply {
+  id: string;
+  email_id: string;
+  subject: string | null;
+  draft_body: string;
+  edited_body: string | null;
+  status: "draft" | "edited" | "sent" | "regenerating";
+  doc_context: string | null;
+  created_at: string;
+  updated_at: string;
+  sent_at: string | null;
+}
+
 export const PRIORITY_CONFIG: Record<
   Priority,
   { label: string; textStyle: string; badgeStyle: string }

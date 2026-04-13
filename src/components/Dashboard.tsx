@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trash2, CheckSquare, Square, CheckCircle, Mail, Settings } from "lucide-react";
+import { Trash2, CheckSquare, Square, CheckCircle, Mail, Settings, Sparkles, Loader2 as Spinner } from "lucide-react";
 import type { Email, Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 import EmailCard from "./EmailCard";
@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkActioning, setBulkActioning] = useState(false);
   const [activeEmail, setActiveEmail] = useState<Email | null>(null);
+  const [batchDrafting, setBatchDrafting] = useState(false);
+  const [batchResult, setBatchResult] = useState<string | null>(null);
 
   const fetchEmails = useCallback(async (priority: Priority) => {
     setLoading(true); setSelectedIds(new Set());
@@ -94,7 +96,24 @@ export default function Dashboard() {
           })}
         </nav>
 
-        <div className="px-2 pb-4 border-t-[0.5px] border-[#1e242a] pt-3">
+        <div className="px-2 pb-4 border-t-[0.5px] border-[#1e242a] pt-3 space-y-1">
+          <button
+            onClick={async () => {
+              setBatchDrafting(true); setBatchResult(null);
+              try {
+                const res = await fetch("/api/drafts/batch", { method: "POST" });
+                if (res.ok) { const d = await res.json(); setBatchResult(`${d.generated} drafted${d.remaining > 0 ? `, ${d.remaining} remaining` : ""}`); }
+              } catch { setBatchResult("Error"); }
+              setBatchDrafting(false);
+              setTimeout(() => setBatchResult(null), 5000);
+            }}
+            disabled={batchDrafting}
+            className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-[#b48a46] hover:bg-[rgba(180,138,70,0.08)] rounded-md transition-colors disabled:opacity-50"
+          >
+            {batchDrafting ? <Spinner className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {batchDrafting ? "Drafting..." : "Draft P1+P2"}
+          </button>
+          {batchResult && <p className="px-3 text-[10px] text-[#606870]">{batchResult}</p>}
           <a href="/rules" className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#606870] hover:text-[#a0a8b0] rounded-md transition-colors">
             <Settings className="w-3.5 h-3.5" /> Rules
           </a>

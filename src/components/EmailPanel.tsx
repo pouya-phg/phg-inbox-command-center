@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
-import { ExternalLink, Reply, ReplyAll, Forward, Send, Paperclip, CheckCircle, Loader2, Inbox, FileText, Image as ImageIcon, FileSpreadsheet, File, ImageOff } from "lucide-react";
-import type { Priority } from "@/types";
+import { ExternalLink, Reply, ReplyAll, Forward, Send, Paperclip, CheckCircle, Loader2, Inbox, FileText, Image as ImageIcon, FileSpreadsheet, File, ImageOff, Sparkles, RotateCw, Trash2 } from "lucide-react";
+import type { Priority, DraftReply } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 
 interface GraphEmail { id: string; subject: string; body: { contentType: string; content: string }; from: { emailAddress: { name: string; address: string } }; toRecipients: { emailAddress: { name: string; address: string } }[]; ccRecipients: { emailAddress: { name: string; address: string } }[]; receivedDateTime: string; hasAttachments: boolean; isRead: boolean; webLink: string; }
@@ -46,11 +46,90 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [imagesBlocked, setImagesBlocked] = useState(false);
   const [showImages, setShowImages] = useState(false);
+  const [draft, setDraft] = useState<DraftReply | null>(null);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftGenerating, setDraftGenerating] = useState(false);
+  const [draftText, setDraftText] = useState("");
+  const [draftSending, setDraftSending] = useState(false);
+  const [draftSent, setDraftSent] = useState(false);
   const composeRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { if (messageId) { fetchEmail(messageId); resetCompose(); setAttachments([]); setShowImages(false); setImagesBlocked(false); } else { setEmail(null); setAttachments([]); } }, [messageId]);
+  useEffect(() => { if (messageId) { fetchEmail(messageId); fetchDraft(messageId); resetCompose(); setAttachments([]); setShowImages(false); setImagesBlocked(false); setDraftSent(false); } else { setEmail(null); setAttachments([]); setDraft(null); } }, [messageId]);
   useEffect(() => { if (composeMode && composeRef.current) composeRef.current.focus(); }, [composeMode]);
   function resetCompose() { setComposeMode(null); setComposeText(""); setForwardTo(""); setSent(false); }
+
+  async function fetchDraft(id: string) {
+    setDraftLoading(true);
+    try {
+      const res = await fetch(`/api/drafts/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.draft) {
+          setDraft(data.draft);
+          setDraftText(data.draft.edited_body || data.draft.draft_body);
+        } else {
+          setDraft(null);
+          setDraftText("");
+        }
+      }
+    } catch { setDraft(null); }
+    setDraftLoading(false);
+  }
+
+  async function generateDraft() {
+    if (!messageId) return;
+    setDraftGenerating(true);
+    try {
+      const res = await fetch("/api/drafts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDraft(data.draft);
+        setDraftText(data.draft.draft_body);
+      }
+    } catch { /* ignore */ }
+    setDraftGenerating(false);
+  }
+
+  async function saveDraftEdit() {
+    if (!messageId || !draft) return;
+    await fetch(`/api/drafts/${messageId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ edited_body: draftText }),
+    });
+  }
+
+  async function sendDraft() {
+    if (!messageId) return;
+    setDraftSending(true);
+    // Save any edits first
+    if (draftText !== (draft?.edited_body || draft?.draft_body)) {
+      await saveDraftEdit();
+    }
+    try {
+      const res = await fetch("/api/drafts/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailId: messageId }),
+      });
+      if (res.ok) {
+        setDraftSent(true);
+        setTimeout(() => { setDraft(null); setDraftText(""); setDraftSent(false); }, 2000);
+      }
+    } catch { setError("Failed to send draft"); }
+    setDraftSending(false);
+  }
+
+  async function discardDraft() {
+    if (!messageId) return;
+    await fetch(`/api/drafts/${messageId}`, { method: "DELETE" });
+    setDraft(null);
+    setDraftText("");
+  }
 
   async function fetchEmail(id: string) {
     setLoading(true); setError(null);
@@ -163,6 +242,67 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
               </div>
             )}
           </div>
+
+          {/* AI Draft Reply */}
+          {(draft || draftGenerating || draftLoading) && (
+            <div className="px-6 py-4 border-b-[0.5px] border-[#1e242a] bg-[#12181e] shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-[#b48a46]" />
+                  <span className="text-[10px] font-semibold text-[#b48a46] uppercase tracking-[0.10em]">AI Draft Reply</span>
+                </div>
+                {draft && !draftGenerating && (
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={generateDraft} className="text-[10px] text-[#606870] hover:text-[#b48a46] flex items-center gap-1 transition-colors">
+                      <RotateCw className="w-3 h-3" /> Regenerate
+                    </button>
+                    <button onClick={discardDraft} className="text-[10px] text-[#606870] hover:text-[#b06050] flex items-center gap-1 transition-colors">
+                      <Trash2 className="w-3 h-3" /> Discard
+                    </button>
+                  </div>
+                )}
+              </div>
+              {draftGenerating || draftLoading ? (
+                <div className="flex items-center gap-2 py-3">
+                  <Loader2 className="w-4 h-4 text-[#b48a46] animate-spin" />
+                  <span className="text-[12px] text-[#606870]">{draftGenerating ? "Generating draft..." : "Loading..."}</span>
+                </div>
+              ) : draft ? (
+                <>
+                  <textarea
+                    value={draftText}
+                    onChange={(e) => setDraftText(e.target.value)}
+                    onBlur={saveDraftEdit}
+                    rows={4}
+                    className="w-full bg-[#181e24] border-[0.5px] border-[#2a3038] rounded-md px-3 py-2.5 text-[13px] text-[#c0c4c8] focus:border-[#b48a46] focus:outline-none resize-none leading-relaxed transition-colors"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[10px] text-[#505860]">
+                      {draft.doc_context ? "Context from OneDrive docs" : "No document context used"}
+                    </span>
+                    <button
+                      onClick={sendDraft}
+                      disabled={draftSending || !draftText.trim()}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#b48a46] text-white text-[12px] font-medium rounded-md hover:bg-[#906830] disabled:opacity-40 transition-colors"
+                    >
+                      {draftSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : draftSent ? <CheckCircle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+                      {draftSending ? "Sending..." : draftSent ? "Sent!" : "Send Draft"}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
+
+          {/* Generate draft button (when no draft exists) */}
+          {!draft && !draftGenerating && !draftLoading && email && (
+            <div className="px-6 py-3 border-b-[0.5px] border-[#1e242a] bg-[#12181e] shrink-0">
+              <button onClick={generateDraft}
+                className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#b48a46] bg-[rgba(180,138,70,0.08)] border-[0.5px] border-[rgba(180,138,70,0.20)] rounded-md hover:bg-[rgba(180,138,70,0.14)] transition-colors">
+                <Sparkles className="w-3.5 h-3.5" /> Generate Draft Reply
+              </button>
+            </div>
+          )}
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto bg-[#181e24]">
