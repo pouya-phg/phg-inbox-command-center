@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession, isAuthorized } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateEmbeddings } from "@/lib/embeddings";
-import { convert } from "html-to-text";
+import { extractText } from "@/lib/extract-text";
 
 export const maxDuration = 300;
 
@@ -35,10 +35,10 @@ function chunkText(text: string, chunkSize = 500, overlap = 100): string[] {
 async function getFileContent(
   accessToken: string,
   itemId: string,
-  mimeType: string
+  mimeType: string,
+  fileName: string
 ): Promise<string | null> {
   try {
-    // Use Graph preview API to get text content
     const res = await fetch(
       `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -46,38 +46,12 @@ async function getFileContent(
 
     if (!res.ok) return null;
 
-    if (mimeType === "text/plain" || mimeType === "text/csv" || mimeType === "text/markdown") {
-      return await res.text();
-    }
+    const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    if (mimeType === "text/html") {
-      const html = await res.text();
-      return convert(html, { wordwrap: false });
-    }
-
-    // For binary docs (PDF, DOCX, etc.), try the preview/content extraction
-    // Graph can extract text for some file types via the preview API
-    const previewRes = await fetch(
-      `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/preview`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: "{}",
-      }
-    );
-
-    if (previewRes.ok) {
-      const preview = await previewRes.json();
-      // If preview gives us content, use it
-      if (preview.getUrl) return null; // Preview URL only, no text extraction
-    }
-
-    // Fallback: use the file name and path as minimal context
-    return null;
-  } catch {
+    return await extractText(buffer, mimeType, fileName);
+  } catch (err) {
+    console.error(`Fetch failed for ${fileName}:`, err);
     return null;
   }
 }
@@ -148,7 +122,7 @@ export async function POST(req: NextRequest) {
       if (existing) continue;
 
       // Try to extract text content
-      const content = await getFileContent(accessToken, item.id, mime);
+      const content = await getFileContent(accessToken, item.id, mime, name);
 
       if (!content || content.length < 50) {
         // Store metadata only (no chunks)
