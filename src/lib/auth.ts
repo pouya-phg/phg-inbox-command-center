@@ -17,7 +17,7 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
           grant_type: "refresh_token",
           refresh_token: token.refreshToken as string,
           scope:
-            "openid profile email Mail.Read Mail.ReadWrite offline_access User.Read",
+            "openid profile email Mail.Read Mail.ReadWrite Mail.Send offline_access User.Read",
         }),
       }
     );
@@ -51,7 +51,8 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         params: {
           scope:
-            "openid profile email Mail.Read Mail.ReadWrite offline_access User.Read",
+            "openid profile email Mail.Read Mail.ReadWrite Mail.Send offline_access User.Read",
+          prompt: "consent",
         },
       },
       profile(profile) {
