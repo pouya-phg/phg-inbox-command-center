@@ -70,11 +70,8 @@ export async function POST(req: NextRequest) {
   const { folder } = await req.json().catch(() => ({ folder: null }));
   const supabase = getSupabaseAdmin();
 
-  // Update status
-  await supabase
-    .from("index_state")
-    .update({ status: "running" })
-    .not("id", "is", null);
+  // Don't set "running" status — if Vercel kills the function at timeout,
+  // the status stays stuck. Instead, the status endpoint checks freshness.
 
   const startTime = Date.now();
   let totalDocs = 0;
@@ -243,4 +240,5 @@ export async function POST(req: NextRequest) {
     remaining_folder_queue: folderQueue.length,
     elapsed_ms: Date.now() - startTime,
   });
+
 }
