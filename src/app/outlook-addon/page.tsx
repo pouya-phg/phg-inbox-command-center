@@ -32,36 +32,32 @@ const P_CONFIG: Record<Priority, { label: string; icon: any; color: string; bg: 
   noise: { label: "Noise", icon: VolumeX, color: "#9898b0", bg: "#eeeef2" },
 };
 
-// Open email in Outlook
+// Open email viewer — falls back to web link since Office.js can't navigate the reading pane
 function openInOutlook(email: EmailData) {
-  const Office = (window as any).Office;
+  if (email.web_link) {
+    window.open(email.web_link, "_blank");
+  }
+}
 
-  // Method 1: Use Office.js displayMessageFormAsync — opens in reading pane on new Outlook
-  if (Office?.context?.mailbox) {
+// Open Outlook's native reply compose with AI draft pre-filled
+function replyWithDraft(email: EmailData, draftBody: string) {
+  const Office = (window as any).Office;
+  if (Office?.context?.mailbox?.item?.displayReplyForm) {
     try {
-      // displayMessageFormAsync navigates the main window on new Outlook
-      Office.context.mailbox.displayMessageFormAsync(email.message_id, (result: any) => {
-        if (result.status === "failed" && email.web_link) {
-          // Fallback to web link if Office.js fails
-          window.open(email.web_link, "_blank");
-        }
-      });
+      Office.context.mailbox.item.displayReplyForm(draftBody);
       return;
     } catch {}
   }
-
-  // Method 2: Outlook deep link protocol (works on desktop)
-  if (email.web_link) {
-    // Convert OWA link to native outlook protocol
-    // ms-outlook://emails/open works on Windows, OWA link works cross-platform
-    window.open(email.web_link, "_blank");
-  }
+  // Fallback: just copy to clipboard
+  navigator.clipboard.writeText(draftBody).then(() => {
+    alert("Draft copied to clipboard. Open the email and paste into your reply.");
+  });
 }
 
 type Tab = "overview" | "selected";
 
 // Inline draft component for email cards
-function InlineDraft({ messageId, onClose }: { messageId: string; onClose: () => void }) {
+function InlineDraft({ messageId, email, onClose }: { messageId: string; email: EmailData; onClose: () => void }) {
   const [generating, setGenerating] = useState(true);
   const [draftText, setDraftText] = useState("");
   const [copied, setCopied] = useState(false);
@@ -139,13 +135,21 @@ function InlineDraft({ messageId, onClose }: { messageId: string; onClose: () =>
         spellCheck={true} rows={4}
         style={{ width: "100%", boxSizing: "border-box", background: bg, border: `0.5px solid ${border}`,
           borderRadius: 6, padding: 8, fontSize: 13, color: "#1a1a2e", lineHeight: 1.5, resize: "none", outline: "none", fontFamily: "inherit" }} />
-      <button onClick={copyDraft} disabled={!draftText.trim()}
-        style={{ width: "100%", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center",
-          gap: 6, padding: "7px 12px", background: accent, color: "#fff", fontSize: 13, fontWeight: 500,
-          border: "none", borderRadius: 6, cursor: "pointer", opacity: draftText.trim() ? 1 : 0.4 }}>
-        {copied ? <CheckCircle size={14} /> : <Copy size={14} />}
-        {copied ? "Copied! Paste in Outlook" : "Copy Draft to Clipboard"}
-      </button>
+      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+        <button onClick={() => replyWithDraft(email, draftText)} disabled={!draftText.trim()}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            gap: 5, padding: "7px 10px", background: accent, color: "#fff", fontSize: 12, fontWeight: 500,
+            border: "none", borderRadius: 6, cursor: "pointer", opacity: draftText.trim() ? 1 : 0.4 }}>
+          <Mail size={13} /> Reply with Draft
+        </button>
+        <button onClick={copyDraft} disabled={!draftText.trim()}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center",
+            gap: 5, padding: "7px 10px", background: "#eef0f6", color: "#5a5a72", fontSize: 12, fontWeight: 500,
+            border: `0.5px solid #cacad8`, borderRadius: 6, cursor: "pointer", opacity: draftText.trim() ? 1 : 0.4 }}>
+          {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -301,11 +305,13 @@ export default function OutlookAddonPage() {
 
         {/* Action buttons */}
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button onClick={() => openInOutlook(email)}
-            style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 12, fontWeight: 500,
-              background: accent, color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }}>
-            <Mail size={12} /> Open
-          </button>
+          {email.web_link && (
+            <a href={email.web_link} target="_blank" rel="noopener noreferrer"
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 12, fontWeight: 500,
+                background: "#eef0f6", color: "#5a5a72", border: `0.5px solid #cacad8`, borderRadius: 5, cursor: "pointer", textDecoration: "none" }}>
+              <ExternalLink size={12} /> View
+            </a>
+          )}
           <button onClick={() => toggleDraft(email.message_id)}
             style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 12, fontWeight: 500,
               background: hasDraftOpen ? "#eef0f6" : "rgba(168,136,48,0.08)", color: hasDraftOpen ? textS : accent,
@@ -316,7 +322,7 @@ export default function OutlookAddonPage() {
 
         {/* Inline draft */}
         {hasDraftOpen && (
-          <InlineDraft messageId={email.message_id} onClose={() => toggleDraft(email.message_id)} />
+          <InlineDraft messageId={email.message_id} email={email} onClose={() => toggleDraft(email.message_id)} />
         )}
       </div>
     );
@@ -430,13 +436,15 @@ export default function OutlookAddonPage() {
                   </h3>
                   <p style={{ fontSize: 13, color: textM, margin: 0 }}>{selectedEmail.sender}</p>
 
-                  {/* Open in Outlook button */}
-                  <button onClick={() => openInOutlook(selectedEmail)}
-                    style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
-                      background: accent, color: "#fff", fontSize: 13, fontWeight: 500,
-                      border: "none", borderRadius: 6, cursor: "pointer" }}>
-                    <Mail size={14} /> Open in Outlook
-                  </button>
+                  {/* Action: View in Outlook Web */}
+                  {selectedEmail.web_link && (
+                    <a href={selectedEmail.web_link} target="_blank" rel="noopener noreferrer"
+                      style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px",
+                        background: "#eef0f6", color: "#5a5a72", fontSize: 12, fontWeight: 500, textDecoration: "none",
+                        border: `0.5px solid #cacad8`, borderRadius: 6 }}>
+                      <ExternalLink size={12} /> View in Browser
+                    </a>
+                  )}
                 </div>
 
                 {/* AI Summary */}
@@ -465,13 +473,21 @@ export default function OutlookAddonPage() {
                         spellCheck={true} rows={5}
                         style={{ width: "100%", boxSizing: "border-box", background: bg, border: `0.5px solid ${border}`,
                           borderRadius: 6, padding: 10, fontSize: 14, color: textP, lineHeight: 1.5, resize: "none", outline: "none", fontFamily: "inherit" }} />
-                      <button onClick={copySelectedDraft} disabled={!selectedDraftText.trim()}
-                        style={{ width: "100%", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                          gap: 6, padding: "9px 12px", background: accent, color: "#fff", fontSize: 13, fontWeight: 500,
-                          border: "none", borderRadius: 6, cursor: "pointer", opacity: selectedDraftText.trim() ? 1 : 0.4 }}>
-                        {selectedCopied ? <CheckCircle size={14} /> : <Copy size={14} />}
-                        {selectedCopied ? "Copied! Paste in Outlook" : "Copy Draft to Clipboard"}
-                      </button>
+                      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                        <button onClick={() => replyWithDraft(selectedEmail, selectedDraftText)} disabled={!selectedDraftText.trim()}
+                          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                            gap: 5, padding: "9px 10px", background: accent, color: "#fff", fontSize: 13, fontWeight: 500,
+                            border: "none", borderRadius: 6, cursor: "pointer", opacity: selectedDraftText.trim() ? 1 : 0.4 }}>
+                          <Mail size={14} /> Reply with Draft
+                        </button>
+                        <button onClick={copySelectedDraft} disabled={!selectedDraftText.trim()}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center",
+                            gap: 5, padding: "9px 10px", background: "#eef0f6", color: "#5a5a72", fontSize: 12, fontWeight: 500,
+                            border: `0.5px solid #cacad8`, borderRadius: 6, cursor: "pointer", opacity: selectedDraftText.trim() ? 1 : 0.4 }}>
+                          {selectedCopied ? <CheckCircle size={14} /> : <Copy size={14} />}
+                          {selectedCopied ? "Copied!" : "Copy"}
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <button onClick={generateSelectedDraft}
