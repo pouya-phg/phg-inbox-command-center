@@ -324,6 +324,7 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
                     value={draftText}
                     onChange={(e) => setDraftText(e.target.value)}
                     onBlur={saveDraftEdit}
+                    spellCheck={true} autoCorrect="on" autoCapitalize="sentences"
                     rows={4}
                     className="w-full bg-[var(--bg-reading)] border-[0.5px] border-[var(--border-mid)] rounded-md px-3 py-2.5 text-[13px] text-[var(--text-body)] focus:border-[var(--accent)] focus:outline-none resize-none leading-relaxed transition-colors"
                   />
@@ -461,6 +462,7 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
                 )}
                 <textarea ref={composeRef} value={composeText} onChange={(e) => setComposeText(e.target.value)} onKeyDown={handleKeyDown}
                   placeholder={composeMode === "forward" ? "Add a note (optional)..." : "Write your reply..."}
+                  spellCheck={true} autoCorrect="on" autoCapitalize="sentences"
                   rows={3} className="w-full bg-[var(--bg-reading)] border-[0.5px] border-[var(--border-mid)] rounded-md px-4 py-3 text-[13px] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none resize-none leading-relaxed transition-colors" />
                 <div className="flex items-center justify-between mt-2">
                   <p className="text-[11px] text-[var(--text-muted)]">{typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to send</p>
