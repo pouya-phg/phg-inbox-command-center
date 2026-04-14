@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession, isAuthorized } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { isAuthenticated } from "@/lib/addon-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateDraftForEmail } from "@/lib/draft-helpers";
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
   const session = await getAuthSession();
 
-  const accessToken = session.accessToken;
+  const accessToken = session?.accessToken;
   if (!accessToken) {
     return NextResponse.json({ error: "No access token" }, { status: 401 });
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession, isAuthorized } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { isAuthenticated } from "@/lib/addon-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
