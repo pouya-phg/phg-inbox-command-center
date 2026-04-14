@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { ExternalLink, Reply, ReplyAll, Forward, Send, Paperclip, CheckCircle, Loader2, Inbox, FileText, Image as ImageIcon, FileSpreadsheet, File, ImageOff, Sparkles, RotateCw, Trash2, ChevronDown, ChevronRight, User } from "lucide-react";
+import { ExternalLink, Paperclip, CheckCircle, Loader2, Inbox, FileText, Image as ImageIcon, FileSpreadsheet, File, ImageOff, Sparkles, RotateCw, Trash2, ChevronDown, ChevronRight, Copy, Mail } from "lucide-react";
 import type { Priority, DraftReply } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 
 interface GraphEmail { id: string; subject: string; body: { contentType: string; content: string }; from: { emailAddress: { name: string; address: string } }; toRecipients: { emailAddress: { name: string; address: string } }[]; ccRecipients: { emailAddress: { name: string; address: string } }[]; receivedDateTime: string; hasAttachments: boolean; isRead: boolean; webLink: string; }
 interface Attachment { id: string; name: string; contentType: string; size: number; }
-type ComposeMode = null | "reply" | "replyAll" | "forward";
 interface EmailPanelProps { messageId: string | null; priority: Priority; summary: string | null; onMarkRead: (messageId: string) => void; }
 
 function formatFileSize(bytes: number): string { if (bytes < 1024) return `${bytes} B`; if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`; return `${(bytes / (1024 * 1024)).toFixed(1)} MB`; }
@@ -28,7 +27,7 @@ function EmptyState() {
         </div>
         <p className="text-[14px] font-medium text-[var(--text-primary)] mb-1">Select an email</p>
         <p className="text-[12px] text-[var(--text-muted)]">Click any email on the left to read it here</p>
-        <p className="text-[11px] text-[var(--text-faint)] mt-3">J/K to navigate</p>
+        <p className="text-[11px] text-[var(--text-faint)] mt-3">J/K to navigate · Reply in Outlook</p>
       </div>
     </div>
   );
@@ -38,30 +37,20 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
   const [email, setEmail] = useState<GraphEmail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [composeMode, setComposeMode] = useState<ComposeMode>(null);
-  const [composeText, setComposeText] = useState("");
-  const [forwardTo, setForwardTo] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [imagesBlocked, setImagesBlocked] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [thread, setThread] = useState<GraphEmail[]>([]);
   const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(new Set());
-  const [signature, setSignature] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftReply | null>(null);
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftGenerating, setDraftGenerating] = useState(false);
   const [draftText, setDraftText] = useState("");
-  const [draftSending, setDraftSending] = useState(false);
-  const [draftSent, setDraftSent] = useState(false);
-  const composeRef = useRef<HTMLTextAreaElement>(null);
+  const [copied, setCopied] = useState(false);
   const [isLight, setIsLight] = useState(false);
 
   useEffect(() => {
-    function checkTheme() {
-      setIsLight(document.documentElement.getAttribute("data-theme") === "light");
-    }
+    function checkTheme() { setIsLight(document.documentElement.getAttribute("data-theme") === "light"); }
     checkTheme();
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -70,25 +59,11 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
 
   useEffect(() => {
     if (messageId) {
-      fetchEmail(messageId); fetchDraft(messageId); resetCompose();
+      fetchEmail(messageId); fetchDraft(messageId);
       setAttachments([]); setShowImages(false); setImagesBlocked(false);
-      setDraftSent(false); setThread([]); setExpandedThreadIds(new Set());
+      setThread([]); setExpandedThreadIds(new Set()); setCopied(false);
     } else { setEmail(null); setAttachments([]); setDraft(null); setThread([]); }
   }, [messageId]);
-
-  // Fetch signature once on mount
-  useEffect(() => {
-    fetch("/api/signature").then(r => r.json()).then(d => { if (d.signature) setSignature(d.signature); }).catch(() => {});
-  }, []);
-  useEffect(() => { if (composeMode && composeRef.current) composeRef.current.focus(); }, [composeMode]);
-  function resetCompose() { setComposeMode(null); setComposeText(""); setForwardTo(""); setSent(false); }
-
-  function startCompose(mode: ComposeMode) {
-    setComposeMode(mode);
-    // Don't pre-fill signature in text — we'll append it server-side when sending
-    // This keeps the compose area clean for the user
-    setComposeText("");
-  }
 
   async function fetchDraft(id: string) {
     setDraftLoading(true);
@@ -96,13 +71,8 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
       const res = await fetch(`/api/drafts/${id}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.draft) {
-          setDraft(data.draft);
-          setDraftText(data.draft.edited_body || data.draft.draft_body);
-        } else {
-          setDraft(null);
-          setDraftText("");
-        }
+        if (data.draft) { setDraft(data.draft); setDraftText(data.draft.edited_body || data.draft.draft_body); }
+        else { setDraft(null); setDraftText(""); }
       }
     } catch { setDraft(null); }
     setDraftLoading(false);
@@ -112,55 +82,31 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
     if (!messageId) return;
     setDraftGenerating(true);
     try {
-      const res = await fetch("/api/drafts/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDraft(data.draft);
-        setDraftText(data.draft.draft_body);
-      }
-    } catch { /* ignore */ }
+      const res = await fetch("/api/drafts/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId }) });
+      if (res.ok) { const data = await res.json(); setDraft(data.draft); setDraftText(data.draft.draft_body); }
+    } catch {}
     setDraftGenerating(false);
   }
 
   async function saveDraftEdit() {
     if (!messageId || !draft) return;
-    await fetch(`/api/drafts/${messageId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ edited_body: draftText }),
-    });
+    await fetch(`/api/drafts/${messageId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ edited_body: draftText }) });
   }
 
-  async function sendDraft() {
-    if (!messageId) return;
-    setDraftSending(true);
-    // Save any edits first
-    if (draftText !== (draft?.edited_body || draft?.draft_body)) {
-      await saveDraftEdit();
-    }
+  async function copyDraft() {
+    if (!draftText.trim()) return;
+    await saveDraftEdit();
     try {
-      const res = await fetch("/api/drafts/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailId: messageId }),
-      });
-      if (res.ok) {
-        setDraftSent(true);
-        setTimeout(() => { setDraft(null); setDraftText(""); setDraftSent(false); }, 2000);
-      }
-    } catch { setError("Failed to send draft"); }
-    setDraftSending(false);
+      await navigator.clipboard.writeText(draftText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { setError("Failed to copy to clipboard"); }
   }
 
   async function discardDraft() {
     if (!messageId) return;
     await fetch(`/api/drafts/${messageId}`, { method: "DELETE" });
-    setDraft(null);
-    setDraftText("");
+    setDraft(null); setDraftText("");
   }
 
   async function fetchEmail(id: string) {
@@ -171,61 +117,19 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
       if (!data.isRead) onMarkRead(id);
       if (data.body?.content && hasExtImages(data.body.content)) { setImagesBlocked(true); setShowImages(false); } else { setImagesBlocked(false); setShowImages(true); }
       if (data.hasAttachments) { const r = await fetch(`/api/emails/${id}/attachments`); if (r.ok) { const d = await r.json(); setAttachments(d.attachments || []); } }
-      // Set thread (excluding the current message)
-      if (data.thread && data.thread.length > 1) {
-        setThread(data.thread.filter((m: GraphEmail) => m.id !== id));
-      } else {
-        setThread([]);
-      }
+      if (data.thread && data.thread.length > 1) { setThread(data.thread.filter((m: GraphEmail) => m.id !== id)); } else { setThread([]); }
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setLoading(false);
   }
 
   function toggleThreadMessage(id: string) {
-    setExpandedThreadIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setExpandedThreadIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
-
-  async function handleSend() {
-    if (!email) return;
-    setSending(true);
-    setError(null);
-    try {
-      let r: Response;
-      if (composeMode === "forward") {
-        if (!forwardTo.trim()) { setSending(false); return; }
-        r = await fetch("/api/forward", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: email.id, toRecipients: forwardTo.split(",").map(e => e.trim()).filter(Boolean), comment: composeText }) });
-      } else {
-        if (!composeText.trim()) { setSending(false); return; }
-        r = await fetch("/api/reply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: email.id, comment: composeText, replyAll: composeMode === "replyAll" }) });
-      }
-      if (!r.ok) {
-        const errData = await r.json().catch(() => ({}));
-        throw new Error(errData.error || `Failed (${r.status})`);
-      }
-      setSent(true);
-      // Refresh thread after successful send (wait a moment for Graph to process)
-      setTimeout(() => {
-        resetCompose();
-        if (messageId) fetchEmail(messageId);
-      }, 2500);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send");
-    }
-    setSending(false);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleSend(); } if (e.key === "Escape") resetCompose(); }
 
   if (!messageId) return <EmptyState />;
   const config = PRIORITY_CONFIG[priority];
   const bodyHtml = email?.body?.content || "";
   const processed = showImages ? bodyHtml : blockImgs(bodyHtml);
-  // Theme-aware iframe CSS (dark or light)
   const iframeColors = isLight
     ? { text: "#1a1a2e", link: "#a88830", quote: "#5a5a72", border: "#e0e0e8", codeBg: "#f4f4f8", codeText: "#5a5a72" }
     : { text: "#c0c4c8", link: "#b48a46", quote: "#808890", border: "#2a3038", codeBg: "#0a0e12", codeText: "#8a9098" };
@@ -248,6 +152,7 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
         <div className="flex-1 flex items-center justify-center"><div className="text-center"><p className="text-[13px] text-[var(--danger)]">{error}</p><button onClick={() => messageId && fetchEmail(messageId)} className="mt-2 text-[12px] text-[var(--accent)]">Try again</button></div></div>
       ) : email ? (
         <>
+          {/* Image blocking banner */}
           {imagesBlocked && !showImages && (
             <div className="px-6 py-2.5 bg-[var(--warning-bg)] border-b-[0.5px] border-[var(--accent)]/30 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 text-[12px] text-[var(--warning)]"><ImageOff className="w-3.5 h-3.5" /><span>External images hidden</span></div>
@@ -255,15 +160,22 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
             </div>
           )}
 
-          {/* Header */}
+          {/* Header — with "Open in Outlook" as PRIMARY action */}
           <div className="px-6 py-5 border-b-[0.5px] border-[var(--border-subtle)] shrink-0 bg-[var(--bg-header)]">
             <div className="flex items-start justify-between gap-3 mb-3">
               <h2 className="text-[16px] font-medium text-[var(--text-primary)] leading-snug">{email.subject || "(No Subject)"}</h2>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded tracking-[0.03em] ${config.badgeStyle}`}>{config.label}</span>
-                <a href={email.webLink} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"><ExternalLink className="w-4 h-4" /></a>
               </div>
             </div>
+
+            {/* Open in Outlook — PRIMARY ACTION */}
+            <a href={email.webLink} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 mb-4 bg-[var(--accent)] text-[var(--text-on-accent)] text-[13px] font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors">
+              <Mail className="w-4 h-4" /> Open in Outlook
+              <ExternalLink className="w-3 h-3 opacity-60" />
+            </a>
+
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-[var(--accent-tint-med)] flex items-center justify-center shrink-0">
                 <span className="text-[12px] font-medium text-[var(--accent)]">{email.from.emailAddress.name?.[0]?.toUpperCase() || "?"}</span>
@@ -281,6 +193,7 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
               </div>
             </div>
 
+            {/* AI Summary */}
             {summary && (
               <div className="mt-3 px-3.5 py-2.5 bg-[var(--accent-tint-soft)] border-[0.5px] border-[var(--accent)]/30 rounded-md">
                 <p className="text-[10px] font-semibold text-[var(--accent)] uppercase tracking-[0.10em] mb-1">AI Summary</p>
@@ -288,6 +201,7 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
               </div>
             )}
 
+            {/* Attachments */}
             {attachments.length > 0 && (
               <div className="mt-3">
                 <p className="text-[10px] font-medium text-[var(--text-tertiary)] uppercase tracking-[0.08em] mb-1.5">Attachments ({attachments.length})</p>
@@ -305,7 +219,7 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
             )}
           </div>
 
-          {/* AI Draft Reply */}
+          {/* AI Draft Reply — with COPY TO CLIPBOARD */}
           {(draft || draftGenerating || draftLoading) && (
             <div className="px-6 py-4 border-b-[0.5px] border-[var(--border-subtle)] bg-[var(--bg-elevated)] shrink-0">
               <div className="flex items-center justify-between mb-2">
@@ -341,15 +255,15 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
                   />
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-[10px] text-[var(--text-muted)]">
-                      {draft.doc_context ? "Context from OneDrive docs" : "No document context used"}
+                      {draft.doc_context ? "Context from OneDrive docs" : "Edit above, then copy to Outlook"}
                     </span>
                     <button
-                      onClick={sendDraft}
-                      disabled={draftSending || !draftText.trim()}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--accent)] text-white text-[12px] font-medium rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-40 transition-colors"
+                      onClick={copyDraft}
+                      disabled={!draftText.trim()}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--accent)] text-[var(--text-on-accent)] text-[12px] font-medium rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-40 transition-colors"
                     >
-                      {draftSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : draftSent ? <CheckCircle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-                      {draftSending ? "Sending..." : draftSent ? "Sent!" : "Send Draft"}
+                      {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? "Copied!" : "Copy Draft"}
                     </button>
                   </div>
                 </>
@@ -361,7 +275,7 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
           {!draft && !draftGenerating && !draftLoading && email && (
             <div className="px-6 py-3 border-b-[0.5px] border-[var(--border-subtle)] bg-[var(--bg-elevated)] shrink-0">
               <button onClick={generateDraft}
-                className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--accent)] bg-[var(--accent-tint-soft)] border-[0.5px] border-[var(--accent)]/30 rounded-md hover:bg-[rgba(180,138,70,0.14)] transition-colors">
+                className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--accent)] bg-[var(--accent-tint-soft)] border-[0.5px] border-[var(--accent)]/30 rounded-md hover:bg-[var(--accent-tint-med)] transition-colors">
                 <Sparkles className="w-3.5 h-3.5" /> Generate Draft Reply
               </button>
             </div>
@@ -369,7 +283,6 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
 
           {/* Body + Thread */}
           <div className="flex-1 overflow-y-auto bg-[var(--bg-reading)]">
-            {/* Current message body */}
             <iframe srcDoc={styled} className="w-full border-0" sandbox="allow-same-origin" title="Email" style={{ minHeight: "250px", height: thread.length > 0 ? "250px" : "100%" }} />
 
             {/* Thread history */}
@@ -394,11 +307,8 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
 
                   return (
                     <div key={msg.id} className="border-t-[0.5px] border-[var(--border-subtle)]">
-                      {/* Thread message header — clickable to expand */}
-                      <button
-                        onClick={() => toggleThreadMessage(msg.id)}
-                        className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-[var(--hover-subtle)] transition-colors"
-                      >
+                      <button onClick={() => toggleThreadMessage(msg.id)}
+                        className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-[var(--hover-subtle)] transition-colors">
                         {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />}
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${fromMe ? "bg-[var(--accent-tint-strong)]" : "bg-[var(--hover-active)]"}`}>
                           <span className={`text-[9px] font-medium ${fromMe ? "text-[var(--accent)]" : "text-[var(--text-tertiary)]"}`}>
@@ -421,19 +331,13 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
                           )}
                         </div>
                       </button>
-                      {/* Expanded body */}
                       {isExpanded && (
                         <div className="px-5 pb-3">
                           <div className="text-[11px] text-[var(--text-muted)] mb-2">
                             To: {(msg.toRecipients || []).map(r => r.emailAddress?.name || r.emailAddress?.address).join(", ")}
                           </div>
-                          <iframe
-                            srcDoc={msgStyled}
-                            className="w-full border-0 rounded"
-                            sandbox="allow-same-origin"
-                            title={`Thread message from ${msg.from?.emailAddress?.name}`}
-                            style={{ minHeight: "150px", height: "200px" }}
-                          />
+                          <iframe srcDoc={msgStyled} className="w-full border-0 rounded" sandbox="allow-same-origin"
+                            title={`Thread message from ${msg.from?.emailAddress?.name}`} style={{ minHeight: "150px", height: "200px" }} />
                         </div>
                       )}
                     </div>
@@ -443,48 +347,11 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
             )}
           </div>
 
-          {/* Actions */}
-          <div className="border-t-[0.5px] border-[var(--border-subtle)] shrink-0 bg-[var(--bg-header)]">
-            {!composeMode ? (
-              <div className="flex items-center gap-2 px-6 py-3">
-                <button onClick={() => startCompose("reply")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--accent)] text-white text-[13px] font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors">
-                  <Reply className="w-4 h-4" /> Reply
-                </button>
-                {(email.toRecipients.length > 1 || (email.ccRecipients?.length ?? 0) > 0) && (
-                  <button onClick={() => startCompose("replyAll")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--hover-subtle)] text-[var(--text-tertiary)] text-[13px] font-medium rounded-md border-[0.5px] border-[var(--border-mid)] hover:text-[var(--text-primary)] transition-colors">
-                    <ReplyAll className="w-4 h-4" /> Reply All
-                  </button>
-                )}
-                <button onClick={() => startCompose("forward")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--hover-subtle)] text-[var(--text-tertiary)] text-[13px] font-medium rounded-md border-[0.5px] border-[var(--border-mid)] hover:text-[var(--text-primary)] transition-colors">
-                  <Forward className="w-4 h-4" /> Forward
-                </button>
-              </div>
-            ) : (
-              <div className="px-6 py-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-medium text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
-                    {composeMode === "forward" ? "Forward" : composeMode === "replyAll" ? "Reply All" : "Reply"}{composeMode !== "forward" ? ` to ${email.from.emailAddress.name}` : ""}
-                  </span>
-                  <button onClick={resetCompose} className="text-[12px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">Cancel</button>
-                </div>
-                {composeMode === "forward" && (
-                  <input type="text" placeholder="To: email@example.com (comma-separated)" value={forwardTo} onChange={(e) => setForwardTo(e.target.value)}
-                    className="w-full bg-[var(--bg-reading)] border-[0.5px] border-[var(--border-mid)] rounded-md px-4 py-2.5 text-[13px] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none mb-2 transition-colors" />
-                )}
-                <textarea ref={composeRef} value={composeText} onChange={(e) => setComposeText(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder={composeMode === "forward" ? "Add a note (optional)..." : "Write your reply..."}
-                  spellCheck={true} autoCorrect="on" autoCapitalize="sentences"
-                  rows={3} className="w-full bg-[var(--bg-reading)] border-[0.5px] border-[var(--border-mid)] rounded-md px-4 py-3 text-[13px] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none resize-none leading-relaxed transition-colors" />
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[11px] text-[var(--text-muted)]">{typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to send</p>
-                  <button onClick={handleSend} disabled={sending || (composeMode === "forward" ? !forwardTo.trim() : !composeText.trim())}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[var(--accent)] text-white text-[13px] font-medium rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : sent ? <CheckCircle className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                    {sending ? "Sending..." : sent ? "Sent!" : composeMode === "forward" ? "Forward" : "Send"}
-                  </button>
-                </div>
-              </div>
-            )}
+          {/* Bottom bar — Open in Outlook reminder (no compose) */}
+          <div className="border-t-[0.5px] border-[var(--border-subtle)] shrink-0 bg-[var(--bg-header)] px-6 py-2.5">
+            <p className="text-[11px] text-[var(--text-muted)]">
+              Reply, forward, and compose in Outlook for full reliability
+            </p>
           </div>
         </>
       ) : null}

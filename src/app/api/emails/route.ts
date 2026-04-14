@@ -11,8 +11,10 @@ export async function GET(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
   const priority = req.nextUrl.searchParams.get("priority") as Priority | null;
+  const search = req.nextUrl.searchParams.get("search");
+  const limitParam = req.nextUrl.searchParams.get("limit");
   const page = parseInt(req.nextUrl.searchParams.get("page") || "1");
-  const limit = 50;
+  const limit = limitParam ? parseInt(limitParam) : 50;
   const offset = (page - 1) * limit;
 
   let query = supabase
@@ -23,6 +25,10 @@ export async function GET(req: NextRequest) {
 
   if (priority) {
     query = query.eq("priority", priority);
+  }
+
+  if (search) {
+    query = query.ilike("subject", `%${search}%`);
   }
 
   const { data, error, count } = await query;

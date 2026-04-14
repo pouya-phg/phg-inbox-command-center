@@ -1,0 +1,102 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/vDevPreview/MicrosoftTeams.schema.json",
+  "manifestVersion": "devPreview",
+  "version": "1.0.0",
+  "id": "7f99a2f3-a24b-4c3e-8cb1-f3ee341f7c4b",
+  "developer": {
+    "name": "Pacific Hospitality Group",
+    "websiteUrl": "https://phg-inbox-command-center.vercel.app",
+    "privacyUrl": "https://phg-inbox-command-center.vercel.app",
+    "termsOfUseUrl": "https://phg-inbox-command-center.vercel.app"
+  },
+  "name": {
+    "short": "PHG Inbox AI",
+    "full": "PHG Inbox Command Center — AI Triage"
+  },
+  "description": {
+    "short": "AI email triage — priority, summary, draft replies",
+    "full": "AI-powered email triage for Outlook. Shows priority classification, AI summaries, and generates draft replies you can copy and paste."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#b48a46",
+  "extensions": [
+    {
+      "requirements": {
+        "capabilities": [
+          { "name": "Mailbox", "minVersion": "1.1" }
+        ]
+      },
+      "runtimes": [
+        {
+          "requirements": {
+            "capabilities": [
+              { "name": "Mailbox", "minVersion": "1.1" }
+            ]
+          },
+          "id": "TaskPaneRuntime",
+          "type": "general",
+          "code": {
+            "page": "https://phg-inbox-command-center.vercel.app/outlook-addon"
+          }
+        }
+      ],
+      "ribbons": [
+        {
+          "contexts": ["mailRead"],
+          "tabs": [
+            {
+              "builtInTabId": "TabDefault",
+              "groups": [
+                {
+                  "id": "phgGroup",
+                  "label": "PHG AI",
+                  "icons": [
+                    { "size": 16, "url": "https://phg-inbox-command-center.vercel.app/icon-16.png" },
+                    { "size": 32, "url": "https://phg-inbox-command-center.vercel.app/icon-32.png" },
+                    { "size": 80, "url": "https://phg-inbox-command-center.vercel.app/icon-80.png" }
+                  ],
+                  "controls": [
+                    {
+                      "id": "openTaskPane",
+                      "type": "button",
+                      "label": "AI Triage",
+                      "icons": [
+                        { "size": 16, "url": "https://phg-inbox-command-center.vercel.app/icon-16.png" },
+                        { "size": 32, "url": "https://phg-inbox-command-center.vercel.app/icon-32.png" },
+                        { "size": 80, "url": "https://phg-inbox-command-center.vercel.app/icon-80.png" }
+                      ],
+                      "supertip": {
+                        "title": "PHG AI Triage",
+                        "description": "View AI priority, summary, and draft reply for this email"
+                      },
+                      "actionId": "openPane"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "autoRunEvents": [],
+      "alternateIcons": {}
+    }
+  ],
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "MailboxItem.Read.User",
+          "type": "Delegated"
+        }
+      ]
+    }
+  },
+  "webApplicationInfo": {
+    "id": "7f99a2f3-a24b-4c3e-8cb1-f3ee341f7c4b",
+    "resource": "api://phg-inbox-command-center.vercel.app/7f99a2f3-a24b-4c3e-8cb1-f3ee341f7c4b"
+  }
+}
