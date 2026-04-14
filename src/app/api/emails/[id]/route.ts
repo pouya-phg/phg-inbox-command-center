@@ -32,42 +32,52 @@ export async function GET(
 
   const email = await res.json();
 
-  // Fetch conversation thread from BOTH Inbox and Sent Items
+  // Fetch conversation thread from ALL mail folders
+  // Using /me/messages (no folder) searches across all folders
   let thread: any[] = [];
   if (email.conversationId) {
-    const convId = email.conversationId;
-    const fields = "$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments,isRead";
-    const filter = `$filter=conversationId eq '${convId}'`;
-    const order = "$orderby=receivedDateTime desc";
+    const convId = encodeURIComponent(email.conversationId);
+    const fields = "id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments,isRead";
 
     try {
-      // Search inbox + sent items in parallel
-      const [inboxRes, sentRes] = await Promise.all([
-        fetch(
-          `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?${filter}&${fields}&${order}&$top=15`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        ),
-        fetch(
-          `https://graph.microsoft.com/v1.0/me/mailFolders/sentItems/messages?${filter}&${fields}&${order}&$top=15`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        ),
-      ]);
+      // Try the top-level /me/messages endpoint which searches all folders
+      const threadRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages?$filter=conversationId eq '${email.conversationId}'&$select=${fields}&$orderby=receivedDateTime desc&$top=25`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
 
-      const inboxData = inboxRes.ok ? await inboxRes.json() : { value: [] };
-      const sentData = sentRes.ok ? await sentRes.json() : { value: [] };
+      if (threadRes.ok) {
+        const threadData = await threadRes.json();
+        thread = threadData.value || [];
+      } else {
+        // Fallback: search inbox + sentItems separately
+        const [inboxRes, sentRes] = await Promise.all([
+          fetch(
+            `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$filter=conversationId eq '${email.conversationId}'&$select=${fields}&$orderby=receivedDateTime desc&$top=15`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          ),
+          fetch(
+            `https://graph.microsoft.com/v1.0/me/mailFolders/sentItems/messages?$filter=conversationId eq '${email.conversationId}'&$select=${fields}&$orderby=receivedDateTime desc&$top=15`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          ),
+        ]);
 
-      // Merge, deduplicate by id, sort newest first
-      const allMessages = [...(inboxData.value || []), ...(sentData.value || [])];
-      const seen = new Set<string>();
-      thread = allMessages
-        .filter((m: any) => {
-          if (seen.has(m.id)) return false;
-          seen.add(m.id);
-          return true;
-        })
-        .sort((a: any, b: any) =>
-          new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime()
-        );
+        const inboxData = inboxRes.ok ? await inboxRes.json() : { value: [] };
+        const sentData = sentRes.ok ? await sentRes.json() : { value: [] };
+        const allMessages = [...(inboxData.value || []), ...(sentData.value || [])];
+
+        // Deduplicate and sort
+        const seen = new Set<string>();
+        thread = allMessages
+          .filter((m: any) => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          })
+          .sort((a: any, b: any) =>
+            new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime()
+          );
+      }
     } catch {
       // Thread fetch is optional
     }

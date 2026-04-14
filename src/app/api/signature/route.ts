@@ -10,7 +10,7 @@ export async function GET() {
 
   const supabase = getSupabaseAdmin();
 
-  // Check for cached signature
+  // Check cache
   const { data: cached } = await supabase
     .from("tone_profiles")
     .select("*")
@@ -24,67 +24,47 @@ export async function GET() {
   }
 
   const accessToken = session.accessToken;
-  if (!accessToken) {
-    return NextResponse.json({ signature: null });
-  }
+  if (!accessToken) return NextResponse.json({ signature: null });
 
-  // Fetch 5 recent sent emails
   const res = await fetch(
-    "https://graph.microsoft.com/v1.0/me/mailFolders/sentItems/messages?$top=5&$select=body&$orderby=sentDateTime desc",
+    "https://graph.microsoft.com/v1.0/me/mailFolders/sentItems/messages?$top=15&$select=body&$orderby=sentDateTime desc",
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
-
-  if (!res.ok) {
-    return NextResponse.json({ signature: null });
-  }
+  if (!res.ok) return NextResponse.json({ signature: null });
 
   const data = await res.json();
-  const sentEmails = data.value || [];
-
   let signature: string | null = null;
-  for (const email of sentEmails) {
-    const html = email.body?.content || "";
-    if (!html) continue;
 
-    // Strategy 1: Look for Outlook signature div by id
-    const sigIdMatch = html.match(/<div[^>]*id=["']?Signature["']?[^>]*>[\s\S]*$/i);
-    if (sigIdMatch && sigIdMatch[0].length > 30 && sigIdMatch[0].length < 3000) {
-      signature = sigIdMatch[0];
+  for (const email of data.value || []) {
+    const html = email.body?.content || "";
+    if (!html || html.length < 100) continue;
+
+    // Pattern 1: Outlook mobile signature div
+    const mobileMatch = html.match(/<div\s+id=["']ms-outlook-mobile-signature["'][^>]*>[\s\S]*?(?=<\/body|$)/i);
+    if (mobileMatch && mobileMatch[0].length > 50) {
+      signature = mobileMatch[0];
       break;
     }
 
-    // Strategy 2: Look for MsoSignature class
-    const msoMatch = html.match(/<div[^>]*class=["'][^"']*MsoSignature[^"']*["'][^>]*>[\s\S]*$/i);
-    if (msoMatch && msoMatch[0].length > 30 && msoMatch[0].length < 3000) {
+    // Pattern 2: Outlook desktop signature div
+    const desktopMatch = html.match(/<div\s+id=["']?Signature["']?[^>]*>[\s\S]*?(?=<\/body|$)/i);
+    if (desktopMatch && desktopMatch[0].length > 50) {
+      signature = desktopMatch[0];
+      break;
+    }
+
+    // Pattern 3: Outlook web signature
+    const webMatch = html.match(/<div\s+id=["']?x_Signature["']?[^>]*>[\s\S]*?(?=<\/body|$)/i);
+    if (webMatch && webMatch[0].length > 50) {
+      signature = webMatch[0];
+      break;
+    }
+
+    // Pattern 4: MsoSignature class
+    const msoMatch = html.match(/<div[^>]*class=["'][^"']*MsoSignature[^"']*["'][^>]*>[\s\S]*?(?=<\/body|$)/i);
+    if (msoMatch && msoMatch[0].length > 50) {
       signature = msoMatch[0];
       break;
-    }
-
-    // Strategy 3: Look for signature-like content near the end
-    // Common patterns: phone numbers, company name, title after double line break
-    const lines = html.split(/<br\s*\/?>/i);
-    if (lines.length > 5) {
-      // Take the last ~15 lines, check for phone/email patterns
-      const tail = lines.slice(-15).join("<br>");
-      if (
-        tail.match(/\d{3}[.\-)\s]\d{3}[.\-)\s]\d{4}/) || // phone
-        tail.match(/pacific\s*hospitality/i) || // company name
-        tail.match(/@pacifichospitality\.com/i) // company email
-      ) {
-        // Find where the signature likely starts (after a blank line)
-        for (let i = lines.length - 15; i < lines.length; i++) {
-          if (i < 0) continue;
-          const line = lines[i].replace(/<[^>]+>/g, "").trim();
-          if (line === "" || line === "&nbsp;") {
-            const sigBlock = lines.slice(i + 1).join("<br>");
-            if (sigBlock.length > 30 && sigBlock.length < 2000) {
-              signature = sigBlock;
-              break;
-            }
-          }
-        }
-        if (signature) break;
-      }
     }
   }
 
@@ -99,5 +79,5 @@ export async function GET() {
     });
   }
 
-  return NextResponse.json({ signature, debug: signature ? null : "No signature pattern found in recent sent emails" });
+  return NextResponse.json({ signature });
 }
