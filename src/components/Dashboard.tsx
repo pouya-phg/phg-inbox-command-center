@@ -8,6 +8,7 @@ import EmailCard from "./EmailCard";
 import EmailPanel from "./EmailPanel";
 import SyncControls from "./SyncControls";
 import ThemeToggle from "./ThemeToggle";
+import SignOutButton from "./SignOutButton";
 
 const TABS: Priority[] = ["p1", "p2", "p3", "noise"];
 
@@ -152,6 +153,7 @@ export default function Dashboard() {
           <a href="/rules" className="flex items-center gap-2 px-3 py-2 text-[12px] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] rounded-md transition-colors">
             <Settings className="w-3.5 h-3.5" /> Rules
           </a>
+          <SignOutButton />
         </div>
       </div>
 
