@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession } from "@/lib/auth";
 import { isAuthenticated } from "@/lib/addon-auth";
+import { getGraphAccessToken } from "@/lib/graph-token";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateDraftForEmail } from "@/lib/draft-helpers";
 
@@ -10,11 +10,10 @@ export async function POST(req: NextRequest) {
   if (!(await isAuthenticated(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const session = await getAuthSession();
 
-  const accessToken = session?.accessToken;
+  const accessToken = await getGraphAccessToken();
   if (!accessToken) {
-    return NextResponse.json({ error: "No access token" }, { status: 401 });
+    return NextResponse.json({ error: "No access token — sign in to the dashboard first" }, { status: 401 });
   }
 
   const { messageId } = await req.json();
@@ -29,7 +28,7 @@ export async function POST(req: NextRequest) {
   );
 
   if (!graphRes.ok) {
-    return NextResponse.json({ error: "Failed to fetch email" }, { status: 502 });
+    return NextResponse.json({ error: "Failed to fetch email from Graph" }, { status: 502 });
   }
 
   const email = await graphRes.json();

@@ -32,18 +32,28 @@ const P_CONFIG: Record<Priority, { label: string; icon: any; color: string; bg: 
   noise: { label: "Noise", icon: VolumeX, color: "#9898b0", bg: "#eeeef2" },
 };
 
-// Open email in desktop Outlook using Office.js or deep link
+// Open email in Outlook
 function openInOutlook(email: EmailData) {
   const Office = (window as any).Office;
-  // Try Office.js native display first (opens in desktop Outlook reading pane)
-  if (Office?.context?.mailbox?.displayMessageForm) {
+
+  // Method 1: Use Office.js displayMessageFormAsync — opens in reading pane on new Outlook
+  if (Office?.context?.mailbox) {
     try {
-      Office.context.mailbox.displayMessageForm(email.message_id);
+      // displayMessageFormAsync navigates the main window on new Outlook
+      Office.context.mailbox.displayMessageFormAsync(email.message_id, (result: any) => {
+        if (result.status === "failed" && email.web_link) {
+          // Fallback to web link if Office.js fails
+          window.open(email.web_link, "_blank");
+        }
+      });
       return;
     } catch {}
   }
-  // Fallback: Outlook web link
+
+  // Method 2: Outlook deep link protocol (works on desktop)
   if (email.web_link) {
+    // Convert OWA link to native outlook protocol
+    // ms-outlook://emails/open works on Windows, OWA link works cross-platform
     window.open(email.web_link, "_blank");
   }
 }

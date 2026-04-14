@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuthSession } from "@/lib/auth";
 import { isAuthenticated } from "@/lib/addon-auth";
+import { getGraphAccessToken } from "@/lib/graph-token";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateDraftForEmail } from "@/lib/draft-helpers";
 
@@ -10,9 +10,7 @@ export async function POST(req: Request) {
   if (!(await isAuthenticated(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const session = await getAuthSession();
-
-  const accessToken = session?.accessToken;
+  const accessToken = await getGraphAccessToken();
   if (!accessToken) {
     return NextResponse.json({ error: "No access token" }, { status: 401 });
   }
