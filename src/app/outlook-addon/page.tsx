@@ -107,22 +107,34 @@ export default function OutlookAddonPage() {
       }
     };
 
-    // Dynamically load Office.js if not already present
-    if ((window as any).Office) {
-      initOffice();
-    } else {
+    // Check if we're inside an Office iframe (Outlook injects Office.js)
+    // The script tag in the root layout loads it, but it may take time
+    let attempts = 0;
+    const maxAttempts = 30; // 15 seconds total
+
+    const checkOffice = () => {
+      attempts++;
+      if ((window as any).Office) {
+        initOffice();
+      } else if (attempts < maxAttempts) {
+        setTimeout(checkOffice, 500);
+      } else {
+        // After 15 seconds, assume we're not in Outlook
+        setReady(true);
+        setError("Not running inside Outlook.");
+      }
+    };
+
+    // If Office.js isn't already on the page, inject it
+    if (!(window as any).Office && !document.querySelector('script[src*="office.js"]')) {
       const script = document.createElement("script");
       script.src = "https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js";
-      script.onload = () => setTimeout(initOffice, 100);
-      script.onerror = () => {
-        setReady(true);
-        setError("Not running inside Outlook. Visit the dashboard instead.");
-      };
       document.head.appendChild(script);
-      // Fallback timeout
-      setTimeout(() => { if (!ready) { setReady(true); setError("Not running inside Outlook."); } }, 5000);
     }
-  }, [lookupEmail, ready]);
+
+    // Start polling for Office object
+    checkOffice();
+  }, [lookupEmail]);
 
   async function generateDraft() {
     if (!email) return;
