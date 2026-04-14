@@ -74,7 +74,6 @@ export default function OutlookAddonPage() {
   }, []);
 
   useEffect(() => {
-    // Try to initialize Office.js
     const initOffice = () => {
       const Office = (window as any).Office;
       if (Office) {
@@ -85,7 +84,6 @@ export default function OutlookAddonPage() {
             setSubject(item.subject || "");
             lookupEmail(item.subject || "");
           }
-          // Listen for item changes
           try {
             Office.context?.mailbox?.addHandlerAsync(
               Office.EventType.ItemChanged,
@@ -103,22 +101,28 @@ export default function OutlookAddonPage() {
           } catch {}
         });
       } else {
-        // Not inside Office — still show the UI for testing
+        // Not inside Office — show standalone mode
         setReady(true);
         setError("Not running inside Outlook. Visit the dashboard instead.");
       }
     };
 
-    // Office.js might already be loaded or still loading
+    // Dynamically load Office.js if not already present
     if ((window as any).Office) {
       initOffice();
     } else {
-      // Wait for Office.js to load
-      window.addEventListener("load", initOffice);
-      // Also try after a short delay in case load already fired
-      setTimeout(initOffice, 1000);
+      const script = document.createElement("script");
+      script.src = "https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js";
+      script.onload = () => setTimeout(initOffice, 100);
+      script.onerror = () => {
+        setReady(true);
+        setError("Not running inside Outlook. Visit the dashboard instead.");
+      };
+      document.head.appendChild(script);
+      // Fallback timeout
+      setTimeout(() => { if (!ready) { setReady(true); setError("Not running inside Outlook."); } }, 5000);
     }
-  }, [lookupEmail]);
+  }, [lookupEmail, ready]);
 
   async function generateDraft() {
     if (!email) return;
