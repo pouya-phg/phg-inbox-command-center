@@ -10,7 +10,7 @@ export async function GET() {
 
   const supabase = getSupabaseAdmin();
 
-  // Check for cached signature (cached for 7 days)
+  // Check for cached signature
   const { data: cached } = await supabase
     .from("tone_profiles")
     .select("*")
@@ -23,12 +23,12 @@ export async function GET() {
     return NextResponse.json({ signature: cached.profile_text });
   }
 
-  // Extract from most recent sent email
   const accessToken = session.accessToken;
   if (!accessToken) {
-    return NextResponse.json({ error: "No access token" }, { status: 401 });
+    return NextResponse.json({ signature: null });
   }
 
+  // Fetch 5 recent sent emails
   const res = await fetch(
     "https://graph.microsoft.com/v1.0/me/mailFolders/sentItems/messages?$top=5&$select=body&$orderby=sentDateTime desc",
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -41,38 +41,54 @@ export async function GET() {
   const data = await res.json();
   const sentEmails = data.value || [];
 
-  // Try to extract signature from the most recent sent emails
-  // Look for common signature patterns in HTML
   let signature: string | null = null;
   for (const email of sentEmails) {
     const html = email.body?.content || "";
-    // Common signature separators
-    const separators = [
-      // Outlook signature div
-      /<div[^>]*id="?Signature"?[^>]*>([\s\S]*?)(?=<\/body|$)/i,
-      // Outlook signature class
-      /<div[^>]*class="?MsoSignature"?[^>]*>([\s\S]*?)(?=<\/div>\s*<\/body|$)/i,
-      // Common "-- " separator
-      /(?:<p[^>]*>|<div[^>]*>)\s*--\s*(?:<\/p>|<br[^>]*>|<\/div>)([\s\S]*?)(?=<\/body|$)/i,
-      // Signature after last <br> block with typical signature content (phone, email, address)
-      /<div[^>]*>([\s\S]*?(?:(?:\d{3}[.\-)\s]){2}\d{4}|@pacifichospitality)[\s\S]*?)(?=<\/body|$)/i,
-    ];
+    if (!html) continue;
 
-    for (const regex of separators) {
-      const match = html.match(regex);
-      if (match) {
-        const extracted = match[0];
-        // Basic validation — signature should be between 50 and 2000 chars
-        if (extracted.length > 50 && extracted.length < 2000) {
-          signature = extracted;
-          break;
+    // Strategy 1: Look for Outlook signature div by id
+    const sigIdMatch = html.match(/<div[^>]*id=["']?Signature["']?[^>]*>[\s\S]*$/i);
+    if (sigIdMatch && sigIdMatch[0].length > 30 && sigIdMatch[0].length < 3000) {
+      signature = sigIdMatch[0];
+      break;
+    }
+
+    // Strategy 2: Look for MsoSignature class
+    const msoMatch = html.match(/<div[^>]*class=["'][^"']*MsoSignature[^"']*["'][^>]*>[\s\S]*$/i);
+    if (msoMatch && msoMatch[0].length > 30 && msoMatch[0].length < 3000) {
+      signature = msoMatch[0];
+      break;
+    }
+
+    // Strategy 3: Look for signature-like content near the end
+    // Common patterns: phone numbers, company name, title after double line break
+    const lines = html.split(/<br\s*\/?>/i);
+    if (lines.length > 5) {
+      // Take the last ~15 lines, check for phone/email patterns
+      const tail = lines.slice(-15).join("<br>");
+      if (
+        tail.match(/\d{3}[.\-)\s]\d{3}[.\-)\s]\d{4}/) || // phone
+        tail.match(/pacific\s*hospitality/i) || // company name
+        tail.match(/@pacifichospitality\.com/i) // company email
+      ) {
+        // Find where the signature likely starts (after a blank line)
+        for (let i = lines.length - 15; i < lines.length; i++) {
+          if (i < 0) continue;
+          const line = lines[i].replace(/<[^>]+>/g, "").trim();
+          if (line === "" || line === "&nbsp;") {
+            const sigBlock = lines.slice(i + 1).join("<br>");
+            if (sigBlock.length > 30 && sigBlock.length < 2000) {
+              signature = sigBlock;
+              break;
+            }
+          }
         }
+        if (signature) break;
       }
     }
-    if (signature) break;
   }
 
-  // Cache it for 7 days — delete old sig cache, insert new
+  // Cache for 7 days
   if (signature) {
     await supabase.from("tone_profiles").delete().eq("hash", "email_signature");
     await supabase.from("tone_profiles").insert({
@@ -83,5 +99,5 @@ export async function GET() {
     });
   }
 
-  return NextResponse.json({ signature });
+  return NextResponse.json({ signature, debug: signature ? null : "No signature pattern found in recent sent emails" });
 }

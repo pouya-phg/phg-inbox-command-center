@@ -38,31 +38,55 @@ export async function POST(req: NextRequest) {
     ids = (data || []).map((e) => e.message_id);
   }
 
-  // Mark as read via MS Graph in batches of 20
-  const batchSize = 20;
+  // Mark as read via MS Graph
   let markedCount = 0;
 
-  for (let i = 0; i < ids.length; i += batchSize) {
-    const batch = ids.slice(i, i + batchSize);
-    const requests = batch.map((id, idx) => ({
-      id: `${idx}`,
-      method: "PATCH",
-      url: `/me/messages/${id}`,
-      body: { isRead: true },
-      headers: { "Content-Type": "application/json" },
-    }));
+  if (ids.length <= 5) {
+    // For small batches, use individual PATCH calls (more reliable)
+    for (const id of ids) {
+      try {
+        const res = await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${id}`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ isRead: true }),
+          }
+        );
+        if (res.ok) markedCount++;
+      } catch {
+        // Skip failed individual marks
+      }
+    }
+  } else {
+    // For large batches, use $batch endpoint
+    const batchSize = 20;
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batch = ids.slice(i, i + batchSize);
+      const requests = batch.map((id, idx) => ({
+        id: `${idx}`,
+        method: "PATCH",
+        url: `/me/messages/${id}`,
+        body: { isRead: true },
+        headers: { "Content-Type": "application/json" },
+      }));
 
-    const res = await fetch("https://graph.microsoft.com/v1.0/$batch", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ requests }),
-    });
-
-    if (res.ok) {
-      markedCount += batch.length;
+      try {
+        const res = await fetch("https://graph.microsoft.com/v1.0/$batch", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ requests }),
+        });
+        if (res.ok) markedCount += batch.length;
+      } catch {
+        // Skip failed batches
+      }
     }
   }
 

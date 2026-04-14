@@ -52,7 +52,6 @@ export const authOptions: NextAuthOptions = {
         params: {
           scope:
             "openid profile email Mail.Read Mail.ReadWrite Mail.Send offline_access User.Read",
-          prompt: "consent",
         },
       },
       profile(profile) {

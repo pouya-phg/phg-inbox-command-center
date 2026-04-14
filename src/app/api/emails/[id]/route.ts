@@ -32,20 +32,44 @@ export async function GET(
 
   const email = await res.json();
 
-  // Fetch the full conversation thread (up to 20 messages)
+  // Fetch conversation thread from BOTH Inbox and Sent Items
   let thread: any[] = [];
   if (email.conversationId) {
+    const convId = email.conversationId;
+    const fields = "$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments,isRead";
+    const filter = `$filter=conversationId eq '${convId}'`;
+    const order = "$orderby=receivedDateTime desc";
+
     try {
-      const threadRes = await fetch(
-        `https://graph.microsoft.com/v1.0/me/messages?$filter=conversationId eq '${email.conversationId}'&$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments,isRead&$orderby=receivedDateTime desc&$top=20`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (threadRes.ok) {
-        const threadData = await threadRes.json();
-        thread = threadData.value || [];
-      }
+      // Search inbox + sent items in parallel
+      const [inboxRes, sentRes] = await Promise.all([
+        fetch(
+          `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?${filter}&${fields}&${order}&$top=15`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        ),
+        fetch(
+          `https://graph.microsoft.com/v1.0/me/mailFolders/sentItems/messages?${filter}&${fields}&${order}&$top=15`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        ),
+      ]);
+
+      const inboxData = inboxRes.ok ? await inboxRes.json() : { value: [] };
+      const sentData = sentRes.ok ? await sentRes.json() : { value: [] };
+
+      // Merge, deduplicate by id, sort newest first
+      const allMessages = [...(inboxData.value || []), ...(sentData.value || [])];
+      const seen = new Set<string>();
+      thread = allMessages
+        .filter((m: any) => {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        })
+        .sort((a: any, b: any) =>
+          new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime()
+        );
     } catch {
-      // Thread fetch is optional — don't fail the whole request
+      // Thread fetch is optional
     }
   }
 
