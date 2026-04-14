@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xsi:type="MailApp">
+
+  <Id>7f99a2f3-a24b-4c3e-8cb1-f3ee341f7c4b</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Pacific Hospitality Group</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="PHG Inbox AI"/>
+  <Description DefaultValue="AI email triage — priority, summary, draft replies"/>
+  <IconUrl DefaultValue="https://phg-inbox-command-center.vercel.app/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://phg-inbox-command-center.vercel.app/icon-128.png"/>
+  <SupportUrl DefaultValue="https://phg-inbox-command-center.vercel.app"/>
+
+  <AppDomains>
+    <AppDomain>https://phg-inbox-command-center.vercel.app</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.1"/>
+    </Sets>
+  </Requirements>
+
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
+        <RequestedHeight>450</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadItem</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+  </Rule>
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.3">
+        <bt:Set Name="Mailbox"/>
+      </bt:Sets>
+    </Requirements>
+
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <FunctionFile resid="residFunctionUrl"/>
+
+          <ExtensionPoint xsi:type="MessageReadCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="phgGroup">
+                <Label resid="groupLabel"/>
+                <Control xsi:type="Button" id="openPaneBtn">
+                  <Label resid="btnLabel"/>
+                  <Supertip>
+                    <Title resid="btnLabel"/>
+                    <Description resid="btnDesc"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="icon16"/>
+                    <bt:Image size="32" resid="icon32"/>
+                    <bt:Image size="80" resid="icon80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="residTaskpaneUrl"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+
+    <Resources>
+      <bt:Images>
+        <bt:Image id="icon16" DefaultValue="https://phg-inbox-command-center.vercel.app/icon-16.png"/>
+        <bt:Image id="icon32" DefaultValue="https://phg-inbox-command-center.vercel.app/icon-32.png"/>
+        <bt:Image id="icon80" DefaultValue="https://phg-inbox-command-center.vercel.app/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="residFunctionUrl" DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
+        <bt:Url id="residTaskpaneUrl" DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="groupLabel" DefaultValue="PHG AI"/>
+        <bt:String id="btnLabel" DefaultValue="AI Triage"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="btnDesc" DefaultValue="View AI priority, summary, and draft reply for this email"/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
