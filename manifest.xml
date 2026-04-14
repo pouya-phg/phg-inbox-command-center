@@ -5,12 +5,12 @@
            xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
            xsi:type="MailApp">
 
-  <Id>7f99a2f3-a24b-4c3e-8cb1-f3ee341f7c4b</Id>
+  <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>Pacific Hospitality Group</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="PHG Inbox AI"/>
-  <Description DefaultValue="AI email triage — priority, summary, draft replies"/>
+  <Description DefaultValue="AI-powered email triage — priority classification, summaries, and draft replies"/>
   <IconUrl DefaultValue="https://phg-inbox-command-center.vercel.app/icon-64.png"/>
   <HighResolutionIconUrl DefaultValue="https://phg-inbox-command-center.vercel.app/icon-128.png"/>
   <SupportUrl DefaultValue="https://phg-inbox-command-center.vercel.app"/>
@@ -54,13 +54,11 @@
     <Hosts>
       <Host xsi:type="MailHost">
         <DesktopFormFactor>
-          <FunctionFile resid="residFunctionUrl"/>
-
           <ExtensionPoint xsi:type="MessageReadCommandSurface">
             <OfficeTab id="TabDefault">
-              <Group id="phgGroup">
+              <Group id="phgAIGroup">
                 <Label resid="groupLabel"/>
-                <Control xsi:type="Button" id="openPaneBtn">
+                <Control xsi:type="Button" id="openPaneButton">
                   <Label resid="btnLabel"/>
                   <Supertip>
                     <Title resid="btnLabel"/>
@@ -72,7 +70,7 @@
                     <bt:Image size="80" resid="icon80"/>
                   </Icon>
                   <Action xsi:type="ShowTaskpane">
-                    <SourceLocation resid="residTaskpaneUrl"/>
+                    <SourceLocation resid="taskpaneUrl"/>
                   </Action>
                 </Control>
               </Group>
@@ -89,8 +87,7 @@
         <bt:Image id="icon80" DefaultValue="https://phg-inbox-command-center.vercel.app/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="residFunctionUrl" DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
-        <bt:Url id="residTaskpaneUrl" DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
+        <bt:Url id="taskpaneUrl" DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="groupLabel" DefaultValue="PHG AI"/>
