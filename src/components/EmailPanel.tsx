@@ -193,18 +193,29 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
   async function handleSend() {
     if (!email) return;
     setSending(true);
+    setError(null);
     try {
+      let r: Response;
       if (composeMode === "forward") {
         if (!forwardTo.trim()) { setSending(false); return; }
-        const r = await fetch("/api/forward", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: email.id, toRecipients: forwardTo.split(",").map(e => e.trim()).filter(Boolean), comment: composeText }) });
-        if (!r.ok) throw new Error("Failed");
+        r = await fetch("/api/forward", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: email.id, toRecipients: forwardTo.split(",").map(e => e.trim()).filter(Boolean), comment: composeText }) });
       } else {
         if (!composeText.trim()) { setSending(false); return; }
-        const r = await fetch("/api/reply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: email.id, comment: composeText, replyAll: composeMode === "replyAll" }) });
-        if (!r.ok) throw new Error("Failed");
+        r = await fetch("/api/reply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: email.id, comment: composeText, replyAll: composeMode === "replyAll" }) });
       }
-      setSent(true); setTimeout(resetCompose, 2000);
-    } catch { setError("Failed to send"); }
+      if (!r.ok) {
+        const errData = await r.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed (${r.status})`);
+      }
+      setSent(true);
+      // Refresh thread after successful send (wait a moment for Graph to process)
+      setTimeout(() => {
+        resetCompose();
+        if (messageId) fetchEmail(messageId);
+      }, 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to send");
+    }
     setSending(false);
   }
 

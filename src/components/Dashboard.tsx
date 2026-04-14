@@ -59,7 +59,20 @@ export default function Dashboard() {
 
   function toggleSelect(messageId: string) { setSelectedIds((prev) => { const next = new Set(prev); if (next.has(messageId)) next.delete(messageId); else next.add(messageId); return next; }); }
   function selectAll() { if (selectedIds.size === emails.length) setSelectedIds(new Set()); else setSelectedIds(new Set(emails.map((e) => e.message_id))); }
-  function handleMarkRead(messageId: string) { fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageIds: [messageId] }) }); setEmails((prev) => prev.map((e) => (e.message_id === messageId ? { ...e, is_read: true } : e))); }
+  async function handleMarkRead(messageId: string) {
+    // Optimistic update
+    setEmails((prev) => prev.map((e) => (e.message_id === messageId ? { ...e, is_read: true } : e)));
+    try {
+      const res = await fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageIds: [messageId] }) });
+      if (!res.ok) {
+        // Revert on failure
+        setEmails((prev) => prev.map((e) => (e.message_id === messageId ? { ...e, is_read: false } : e)));
+        console.error("Mark-read failed:", res.status);
+      }
+    } catch {
+      setEmails((prev) => prev.map((e) => (e.message_id === messageId ? { ...e, is_read: false } : e)));
+    }
+  }
   async function handleBulkMarkRead() { if (selectedIds.size === 0) return; setBulkActioning(true); await fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageIds: Array.from(selectedIds) }) }); setEmails((prev) => prev.map((e) => (selectedIds.has(e.message_id) ? { ...e, is_read: true } : e))); setSelectedIds(new Set()); fetchCounts(); setBulkActioning(false); }
   async function handleMarkAllNoiseRead() { setMarkingAll(true); await fetch("/api/mark-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAll: true }) }); if (activeTab === "noise") setEmails((prev) => prev.map((e) => ({ ...e, is_read: true }))); setSelectedIds(new Set()); fetchCounts(); setMarkingAll(false); }
 

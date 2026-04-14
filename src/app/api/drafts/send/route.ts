@@ -33,34 +33,75 @@ export async function POST(req: NextRequest) {
 
   const replyBody = draft.edited_body || draft.draft_body;
 
-  // Send via Graph API
-  const res = await fetch(
-    `https://graph.microsoft.com/v1.0/me/messages/${emailId}/reply`,
+  // Load signature
+  let signatureHtml = "";
+  try {
+    const { data: sigData } = await supabase
+      .from("tone_profiles")
+      .select("profile_text")
+      .eq("hash", "email_signature_manual")
+      .limit(1)
+      .single();
+    if (sigData?.profile_text) signatureHtml = sigData.profile_text;
+  } catch {}
+
+  const fullBody = signatureHtml
+    ? `<div>${replyBody.replace(/\n/g, "<br>")}</div><br><div>${signatureHtml}</div>`
+    : replyBody;
+
+  // Step 1: Create reply draft with full body
+  const draftRes = await fetch(
+    `https://graph.microsoft.com/v1.0/me/messages/${emailId}/createReply`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ comment: replyBody }),
+      body: JSON.stringify({
+        message: {
+          body: { contentType: "HTML", content: fullBody },
+        },
+      }),
     }
   );
 
-  if (!res.ok) {
-    const err = await res.text();
+  if (!draftRes.ok) {
+    const err = await draftRes.text();
+    return NextResponse.json(
+      { error: "Failed to create reply", detail: err },
+      { status: draftRes.status }
+    );
+  }
+
+  const replyDraft = await draftRes.json();
+
+  // Step 2: Send the draft
+  const sendRes = await fetch(
+    `https://graph.microsoft.com/v1.0/me/messages/${replyDraft.id}/send`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (!sendRes.ok) {
+    const err = await sendRes.text();
+    // Clean up failed draft
+    await fetch(`https://graph.microsoft.com/v1.0/me/messages/${replyDraft.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).catch(() => {});
     return NextResponse.json(
       { error: "Failed to send", detail: err },
-      { status: res.status }
+      { status: sendRes.status }
     );
   }
 
   // Update draft status
   await supabase
     .from("draft_replies")
-    .update({
-      status: "sent",
-      sent_at: new Date().toISOString(),
-    })
+    .update({ status: "sent", sent_at: new Date().toISOString() })
     .eq("email_id", emailId);
 
   return NextResponse.json({ success: true });

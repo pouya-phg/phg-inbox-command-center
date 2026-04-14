@@ -8,26 +8,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { messageIds, markAll } = await req.json();
-
-  if (!messageIds && !markAll) {
-    return NextResponse.json(
-      { error: "messageIds or markAll required" },
-      { status: 400 }
-    );
-  }
-
   const accessToken = session.accessToken;
   if (!accessToken) {
-    return NextResponse.json(
-      { error: "No access token available" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "No access token" }, { status: 401 });
+  }
+
+  const { messageIds, markAll } = await req.json();
+  if (!messageIds && !markAll) {
+    return NextResponse.json({ error: "messageIds or markAll required" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();
 
-  // If markAll, fetch all noise message IDs
   let ids: string[] = messageIds || [];
   if (markAll) {
     const { data } = await supabase
@@ -38,13 +30,20 @@ export async function POST(req: NextRequest) {
     ids = (data || []).map((e) => e.message_id);
   }
 
-  // Mark as read via MS Graph
-  let markedCount = 0;
+  if (ids.length === 0) {
+    return NextResponse.json({ marked: 0, failed: 0 });
+  }
 
-  if (ids.length <= 5) {
-    // For small batches, use individual PATCH calls (more reliable)
-    for (const id of ids) {
-      try {
+  let marked = 0;
+  let failed = 0;
+  const failedIds: string[] = [];
+
+  // Individual PATCH for each email — more reliable than $batch
+  // Process in parallel groups of 5 for speed
+  for (let i = 0; i < ids.length; i += 5) {
+    const chunk = ids.slice(i, i + 5);
+    const results = await Promise.allSettled(
+      chunk.map(async (id) => {
         const res = await fetch(
           `https://graph.microsoft.com/v1.0/me/messages/${id}`,
           {
@@ -56,44 +55,35 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({ isRead: true }),
           }
         );
-        if (res.ok) markedCount++;
-      } catch {
-        // Skip failed individual marks
-      }
-    }
-  } else {
-    // For large batches, use $batch endpoint
-    const batchSize = 20;
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const batch = ids.slice(i, i + batchSize);
-      const requests = batch.map((id, idx) => ({
-        id: `${idx}`,
-        method: "PATCH",
-        url: `/me/messages/${id}`,
-        body: { isRead: true },
-        headers: { "Content-Type": "application/json" },
-      }));
+        if (!res.ok) {
+          throw new Error(`${res.status}: ${await res.text().catch(() => "unknown")}`);
+        }
+        return id;
+      })
+    );
 
-      try {
-        const res = await fetch("https://graph.microsoft.com/v1.0/$batch", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ requests }),
-        });
-        if (res.ok) markedCount += batch.length;
-      } catch {
-        // Skip failed batches
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        marked++;
+      } else {
+        failed++;
+        // Log the actual error
+        console.error("Mark-read failed:", r.reason?.message || r.reason);
       }
     }
   }
 
-  // Update Supabase
-  if (ids.length > 0) {
-    await supabase.from("emails").update({ is_read: true }).in("message_id", ids);
+  // Update Supabase for successfully marked IDs
+  const successIds = ids.filter((id) => !failedIds.includes(id));
+  if (successIds.length > 0) {
+    // Supabase .in() has a limit, chunk at 100
+    for (let i = 0; i < successIds.length; i += 100) {
+      await supabase
+        .from("emails")
+        .update({ is_read: true })
+        .in("message_id", successIds.slice(i, i + 100));
+    }
   }
 
-  return NextResponse.json({ marked: markedCount });
+  return NextResponse.json({ marked, failed, total: ids.length });
 }
