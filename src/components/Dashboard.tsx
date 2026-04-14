@@ -153,6 +153,9 @@ export default function Dashboard() {
           <a href="/rules" className="flex items-center gap-2 px-3 py-2 text-[12px] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] rounded-md transition-colors">
             <Settings className="w-3.5 h-3.5" /> Rules
           </a>
+          <a href="/settings" className="flex items-center gap-2 px-3 py-2 text-[12px] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] rounded-md transition-colors">
+            <Settings className="w-3.5 h-3.5" /> Settings
+          </a>
           <SignOutButton />
         </div>
       </div>
