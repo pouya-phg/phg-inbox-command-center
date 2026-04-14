@@ -31,10 +31,10 @@ function addonFetch(path: string, opts: RequestInit = {}) {
 }
 
 const P_CONFIG: Record<Priority, { label: string; icon: any; color: string; bg: string }> = {
-  p1: { label: "Needs Action", icon: AlertCircle, color: "#b48a46", bg: "rgba(180,138,70,0.16)" },
-  p2: { label: "High Priority", icon: Bell, color: "#a07840", bg: "#1a1208" },
-  p3: { label: "Informational", icon: Inbox, color: "#707880", bg: "rgba(255,255,255,0.05)" },
-  noise: { label: "Noise", icon: VolumeX, color: "#505860", bg: "rgba(255,255,255,0.04)" },
+  p1: { label: "Needs Action", icon: AlertCircle, color: "#9a2828", bg: "#faecec" },
+  p2: { label: "High Priority", icon: Bell, color: "#8a5a10", bg: "#faf2e0" },
+  p3: { label: "Informational", icon: Inbox, color: "#607088", bg: "#eef0f6" },
+  noise: { label: "Noise", icon: VolumeX, color: "#9898b0", bg: "#eeeef2" },
 };
 
 type Tab = "overview" | "selected";
@@ -172,9 +172,10 @@ export default function OutlookAddonPage() {
   }
 
   // Styles
-  const bg = "#0c1014"; const surface = "#141a20"; const headerBg = "#10161c";
-  const border = "#1e242a"; const accent = "#b48a46"; const accentHover = "#906830";
-  const textP = "#d0d4d8"; const textS = "#8a9098"; const textM = "#606870";
+  // Pearl & Graphite light theme
+  const bg = "#f7f7f9"; const surface = "#ffffff"; const headerBg = "#eeeef2";
+  const border = "#e0e0e8"; const accent = "#a88830"; const accentHover = "#886810";
+  const textP = "#1a1a2e"; const textS = "#5a5a72"; const textM = "#9898b0";
 
   if (!ready) {
     return (
@@ -199,13 +200,13 @@ export default function OutlookAddonPage() {
       {/* Tab bar */}
       <div style={{ display: "flex", borderBottom: `0.5px solid ${border}`, background: headerBg, flexShrink: 0 }}>
         <button onClick={() => setTab("overview")}
-          style={{ flex: 1, padding: "10px 8px", fontSize: 11, fontWeight: 500, border: "none", cursor: "pointer",
+          style={{ flex: 1, padding: "10px 8px", fontSize: 13, fontWeight: 500, border: "none", cursor: "pointer",
             background: "transparent", color: tab === "overview" ? accent : textM,
             borderBottom: tab === "overview" ? `2px solid ${accent}` : "2px solid transparent" }}>
           Inbox Overview
         </button>
         <button onClick={() => setTab("selected")}
-          style={{ flex: 1, padding: "10px 8px", fontSize: 11, fontWeight: 500, border: "none", cursor: "pointer",
+          style={{ flex: 1, padding: "10px 8px", fontSize: 13, fontWeight: 500, border: "none", cursor: "pointer",
             background: "transparent", color: tab === "selected" ? accent : textM,
             borderBottom: tab === "selected" ? `2px solid ${accent}` : "2px solid transparent" }}>
           Selected Email
@@ -224,9 +225,9 @@ export default function OutlookAddonPage() {
                   <div key={p} style={{ background: surface, borderRadius: 8, padding: "10px 12px", border: `0.5px solid ${border}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                       <Icon size={12} color={c.color} />
-                      <span style={{ fontSize: 10, color: c.color, fontWeight: 600 }}>{c.label}</span>
+                      <span style={{ fontSize: 12, color: c.color, fontWeight: 600 }}>{c.label}</span>
                     </div>
-                    <span style={{ fontSize: 20, fontWeight: 600, color: textP }}>{counts[p]}</span>
+                    <span style={{ fontSize: 24, fontWeight: 600, color: textP }}>{counts[p]}</span>
                   </div>
                 );
               })}
@@ -234,7 +235,7 @@ export default function OutlookAddonPage() {
 
             {/* P1 queue */}
             <div style={{ padding: "4px 12px 8px" }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
                 Needs Action ({counts.p1})
               </p>
               {overviewLoading ? (
@@ -243,23 +244,23 @@ export default function OutlookAddonPage() {
                   <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                 </div>
               ) : p1Emails.length === 0 ? (
-                <p style={{ fontSize: 11, color: textM, textAlign: "center", padding: 16 }}>All clear!</p>
+                <p style={{ fontSize: 13, color: textM, textAlign: "center", padding: 16 }}>All clear!</p>
               ) : (
                 p1Emails.map(email => (
                   <div key={email.id}
                     onClick={() => { if (email.web_link) window.open(email.web_link, "_blank"); }}
                     style={{ padding: "8px 10px", marginBottom: 4, background: surface, borderRadius: 6, border: `0.5px solid ${border}`, cursor: "pointer" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                      <span style={{ fontSize: 11, fontWeight: 500, color: textP, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: textP, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
                         {email.sender?.split("@")[0]}
                       </span>
-                      <span style={{ fontSize: 9, color: textM }}>{formatTime(email.received_at)}</span>
+                      <span style={{ fontSize: 11, color: textM }}>{formatTime(email.received_at)}</span>
                     </div>
-                    <p style={{ fontSize: 11, color: textS, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <p style={{ fontSize: 13, color: textS, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {email.subject}
                     </p>
                     {email.summary && (
-                      <p style={{ fontSize: 10, color: textM, margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <p style={{ fontSize: 12, color: textM, margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {email.summary}
                       </p>
                     )}
@@ -271,7 +272,7 @@ export default function OutlookAddonPage() {
             {/* P2 preview */}
             {p2Emails.length > 0 && (
               <div style={{ padding: "4px 12px 12px" }}>
-                <p style={{ fontSize: 10, fontWeight: 600, color: "#a07840", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#a07840", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
                   High Priority ({counts.p2})
                 </p>
                 {p2Emails.slice(0, 5).map(email => (
@@ -279,8 +280,8 @@ export default function OutlookAddonPage() {
                     onClick={() => { if (email.web_link) window.open(email.web_link, "_blank"); }}
                     style={{ padding: "6px 10px", marginBottom: 3, background: surface, borderRadius: 6, border: `0.5px solid ${border}`, cursor: "pointer" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 10, color: textS, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "75%" }}>{email.subject}</span>
-                      <span style={{ fontSize: 9, color: textM }}>{formatTime(email.received_at)}</span>
+                      <span style={{ fontSize: 12, color: textS, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "75%" }}>{email.subject}</span>
+                      <span style={{ fontSize: 11, color: textM }}>{formatTime(email.received_at)}</span>
                     </div>
                   </div>
                 ))}
@@ -291,8 +292,8 @@ export default function OutlookAddonPage() {
             <div style={{ padding: "8px 12px 16px" }}>
               <a href="https://phg-inbox-command-center.vercel.app" target="_blank" rel="noopener noreferrer"
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 12px",
-                  background: "rgba(180,138,70,0.08)", border: `0.5px solid rgba(180,138,70,0.20)`, borderRadius: 6,
-                  color: accent, fontSize: 11, textDecoration: "none", fontWeight: 500 }}>
+                  background: "rgba(168,136,48,0.08)", border: `0.5px solid rgba(168,136,48,0.15)`, borderRadius: 6,
+                  color: accent, fontSize: 13, textDecoration: "none", fontWeight: 500 }}>
                 <ExternalLink size={12} /> Open Full Dashboard
               </a>
             </div>
@@ -303,15 +304,15 @@ export default function OutlookAddonPage() {
             {selectedLoading ? (
               <div style={{ textAlign: "center", padding: 40 }}>
                 <Loader2 size={16} color={accent} style={{ animation: "spin 1s linear infinite" }} />
-                <p style={{ fontSize: 11, color: textM, marginTop: 8 }}>Looking up...</p>
+                <p style={{ fontSize: 13, color: textM, marginTop: 8 }}>Looking up...</p>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             ) : !selectedEmail ? (
               <div style={{ textAlign: "center", padding: 40 }}>
-                <p style={{ fontSize: 12, color: textS, marginBottom: 4 }}>
+                <p style={{ fontSize: 14, color: textS, marginBottom: 4 }}>
                   {selectedSubject ? "Not triaged yet" : "Select an email"}
                 </p>
-                <p style={{ fontSize: 10, color: textM }}>
+                <p style={{ fontSize: 12, color: textM }}>
                   {selectedSubject ? "This email hasn't been classified." : "Click on an email in Outlook to see AI triage."}
                 </p>
               </div>
@@ -320,22 +321,22 @@ export default function OutlookAddonPage() {
                 {/* Selected email header */}
                 <div style={{ padding: 12, borderBottom: `0.5px solid ${border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
+                    <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
                       background: P_CONFIG[selectedEmail.priority].bg, color: P_CONFIG[selectedEmail.priority].color }}>
                       {P_CONFIG[selectedEmail.priority].label}
                     </span>
                   </div>
-                  <h3 style={{ fontSize: 13, fontWeight: 500, margin: "0 0 4px", color: textP, lineHeight: 1.4 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 500, margin: "0 0 4px", color: textP, lineHeight: 1.4 }}>
                     {selectedEmail.subject}
                   </h3>
-                  <p style={{ fontSize: 11, color: textM, margin: 0 }}>{selectedEmail.sender}</p>
+                  <p style={{ fontSize: 13, color: textM, margin: 0 }}>{selectedEmail.sender}</p>
                 </div>
 
                 {/* AI Summary */}
                 {selectedEmail.summary && (
                   <div style={{ padding: 12, borderBottom: `0.5px solid ${border}` }}>
-                    <p style={{ fontSize: 9, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.10em", margin: "0 0 4px" }}>AI Summary</p>
-                    <p style={{ fontSize: 12, color: textP, lineHeight: 1.6, margin: 0 }}>{selectedEmail.summary}</p>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.10em", margin: "0 0 4px" }}>AI Summary</p>
+                    <p style={{ fontSize: 14, color: textP, lineHeight: 1.6, margin: 0 }}>{selectedEmail.summary}</p>
                   </div>
                 )}
 
@@ -344,7 +345,7 @@ export default function OutlookAddonPage() {
                   {draftGenerating ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
                       <Loader2 size={14} color={accent} style={{ animation: "spin 1s linear infinite" }} />
-                      <span style={{ fontSize: 11, color: textM }}>Generating...</span>
+                      <span style={{ fontSize: 13, color: textM }}>Generating...</span>
                       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                     </div>
                   ) : draft ? (
@@ -352,7 +353,7 @@ export default function OutlookAddonPage() {
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <Sparkles size={12} color={accent} />
-                          <span style={{ fontSize: 9, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>AI Draft</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>AI Draft</span>
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={generateDraft} style={{ background: "none", border: "none", cursor: "pointer", color: textM, padding: 2 }}><RotateCw size={10} /></button>
@@ -362,10 +363,10 @@ export default function OutlookAddonPage() {
                       <textarea value={draftText} onChange={(e) => setDraftText(e.target.value)}
                         spellCheck={true} rows={5}
                         style={{ width: "100%", boxSizing: "border-box", background: bg, border: `0.5px solid ${border}`,
-                          borderRadius: 6, padding: 8, fontSize: 12, color: textP, lineHeight: 1.5, resize: "none", outline: "none", fontFamily: "inherit" }} />
+                          borderRadius: 6, padding: 8, fontSize: 14, color: textP, lineHeight: 1.5, resize: "none", outline: "none", fontFamily: "inherit" }} />
                       <button onClick={copyDraft} disabled={!draftText.trim()}
                         style={{ width: "100%", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                          gap: 6, padding: "8px 12px", background: accent, color: "#fff", fontSize: 12, fontWeight: 500,
+                          gap: 6, padding: "8px 12px", background: accent, color: "#fff", fontSize: 14, fontWeight: 500,
                           border: "none", borderRadius: 6, cursor: "pointer", opacity: draftText.trim() ? 1 : 0.4 }}>
                         {copied ? <CheckCircle size={14} /> : <Copy size={14} />}
                         {copied ? "Copied! Paste in Outlook" : "Copy Draft to Clipboard"}
@@ -374,8 +375,8 @@ export default function OutlookAddonPage() {
                   ) : (
                     <button onClick={generateDraft}
                       style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
-                        gap: 8, padding: "8px 12px", background: "rgba(180,138,70,0.08)", color: accent,
-                        fontSize: 12, border: `0.5px solid rgba(180,138,70,0.20)`, borderRadius: 6, cursor: "pointer" }}>
+                        gap: 8, padding: "8px 12px", background: "rgba(168,136,48,0.08)", color: accent,
+                        fontSize: 14, border: `0.5px solid rgba(168,136,48,0.15)`, borderRadius: 6, cursor: "pointer" }}>
                       <Sparkles size={14} /> Generate Draft Reply
                     </button>
                   )}
@@ -385,7 +386,7 @@ export default function OutlookAddonPage() {
                 {selectedEmail.web_link && (
                   <div style={{ padding: 12 }}>
                     <a href={selectedEmail.web_link} target="_blank" rel="noopener noreferrer"
-                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: textM, textDecoration: "none" }}>
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: textM, textDecoration: "none" }}>
                       <ExternalLink size={12} /> Open in Outlook Web
                     </a>
                   </div>
