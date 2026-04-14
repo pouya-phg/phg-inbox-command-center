@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession, isAuthorized } from "@/lib/auth";
+import { isAuthenticated } from "@/lib/addon-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import type { Priority } from "@/types";
 
 export async function GET(req: NextRequest) {
-  const session = await getAuthSession();
-  if (!session || !isAuthorized(session.user?.email)) {
+  if (!(await isAuthenticated(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

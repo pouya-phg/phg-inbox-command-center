@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession, isAuthorized } from "@/lib/auth";
+import { isAuthenticated } from "@/lib/addon-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateDraftForEmail } from "@/lib/draft-helpers";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const session = await getAuthSession();
-  if (!session || !isAuthorized(session.user?.email)) {
+  if (!(await isAuthenticated(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const session = await getAuthSession();
 
   const accessToken = session.accessToken;
   if (!accessToken) {

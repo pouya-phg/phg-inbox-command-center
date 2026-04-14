@@ -18,6 +18,15 @@ interface DraftData {
   doc_context: string | null;
 }
 
+const API_BASE = "https://phg-inbox-command-center.vercel.app";
+const ADDON_KEY = process.env.NEXT_PUBLIC_ADDON_API_KEY || "";
+
+function addonFetch(path: string, opts: RequestInit = {}) {
+  const headers = new Headers(opts.headers);
+  headers.set("x-addon-key", ADDON_KEY);
+  return fetch(`${API_BASE}${path}`, { ...opts, headers });
+}
+
 const PRIORITY_LABELS: Record<Priority, { label: string; color: string; bg: string }> = {
   p1: { label: "Needs Action", color: "#b48a46", bg: "rgba(180,138,70,0.16)" },
   p2: { label: "High Priority", color: "#a07840", bg: "#1a1208" },
@@ -43,16 +52,15 @@ export default function OutlookAddonPage() {
     setNotFound(false);
     setError(null);
     try {
-      const res = await fetch(
-        `https://phg-inbox-command-center.vercel.app/api/emails?search=${encodeURIComponent(subj)}&limit=1`
+      const res = await addonFetch(`/api/emails?search=${encodeURIComponent(subj)}&limit=1`
       );
       if (res.ok) {
         const data = await res.json();
         if (data.emails?.length > 0) {
           setEmail(data.emails[0]);
           // Fetch existing draft
-          const dRes = await fetch(
-            `https://phg-inbox-command-center.vercel.app/api/drafts/${data.emails[0].message_id}`
+          const dRes = await addonFetch(
+            `/api/drafts/${data.emails[0].message_id}`
           );
           if (dRes.ok) {
             const dData = await dRes.json();
@@ -140,7 +148,7 @@ export default function OutlookAddonPage() {
     if (!email) return;
     setDraftGenerating(true);
     try {
-      const res = await fetch("https://phg-inbox-command-center.vercel.app/api/drafts/generate", {
+      const res = await addonFetch("/api/drafts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messageId: email.message_id }),
@@ -165,7 +173,7 @@ export default function OutlookAddonPage() {
 
   async function discardDraft() {
     if (!email) return;
-    await fetch(`https://phg-inbox-command-center.vercel.app/api/drafts/${email.message_id}`, { method: "DELETE" });
+    await addonFetch(`/api/drafts/${email.message_id}`, { method: "DELETE" });
     setDraft(null);
     setDraftText("");
   }
