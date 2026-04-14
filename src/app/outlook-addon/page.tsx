@@ -32,11 +32,13 @@ const P_CONFIG: Record<Priority, { label: string; icon: any; color: string; bg: 
   noise: { label: "Noise", icon: VolumeX, color: "#9898b0", bg: "#eeeef2" },
 };
 
-// Open email viewer — falls back to web link since Office.js can't navigate the reading pane
+// Open email in desktop Outlook window
 function openInOutlook(email: EmailData) {
-  if (email.web_link) {
-    window.open(email.web_link, "_blank");
+  const Office = (window as any).Office;
+  if (Office?.context?.mailbox?.displayMessageForm) {
+    try { Office.context.mailbox.displayMessageForm(email.message_id); return; } catch {}
   }
+  if (email.web_link) window.open(email.web_link, "_blank");
 }
 
 // Open Outlook's native reply compose with AI draft pre-filled
@@ -305,13 +307,11 @@ export default function OutlookAddonPage() {
 
         {/* Action buttons */}
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          {email.web_link && (
-            <a href={email.web_link} target="_blank" rel="noopener noreferrer"
-              style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 12, fontWeight: 500,
-                background: "#eef0f6", color: "#5a5a72", border: `0.5px solid #cacad8`, borderRadius: 5, cursor: "pointer", textDecoration: "none" }}>
-              <ExternalLink size={12} /> View
-            </a>
-          )}
+          <button onClick={() => openInOutlook(email)}
+            style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 12, fontWeight: 500,
+              background: "#eef0f6", color: "#5a5a72", border: `0.5px solid #cacad8`, borderRadius: 5, cursor: "pointer" }}>
+            <Mail size={12} /> Open
+          </button>
           <button onClick={() => toggleDraft(email.message_id)}
             style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 12, fontWeight: 500,
               background: hasDraftOpen ? "#eef0f6" : "rgba(168,136,48,0.08)", color: hasDraftOpen ? textS : accent,
@@ -436,15 +436,13 @@ export default function OutlookAddonPage() {
                   </h3>
                   <p style={{ fontSize: 13, color: textM, margin: 0 }}>{selectedEmail.sender}</p>
 
-                  {/* Action: View in Outlook Web */}
-                  {selectedEmail.web_link && (
-                    <a href={selectedEmail.web_link} target="_blank" rel="noopener noreferrer"
-                      style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px",
-                        background: "#eef0f6", color: "#5a5a72", fontSize: 12, fontWeight: 500, textDecoration: "none",
-                        border: `0.5px solid #cacad8`, borderRadius: 6 }}>
-                      <ExternalLink size={12} /> View in Browser
-                    </a>
-                  )}
+                  {/* Open in Outlook desktop */}
+                  <button onClick={() => openInOutlook(selectedEmail)}
+                    style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
+                      background: "#eef0f6", color: "#5a5a72", fontSize: 13, fontWeight: 500,
+                      border: `0.5px solid #cacad8`, borderRadius: 6, cursor: "pointer" }}>
+                    <Mail size={14} /> Open in Outlook
+                  </button>
                 </div>
 
                 {/* AI Summary */}

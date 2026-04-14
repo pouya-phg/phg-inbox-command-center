@@ -86,14 +86,34 @@ Output a JSON object with these 7 keys. Be specific, cite examples. Under 400 wo
 
 export async function fetchEmailThread(
   accessToken: string,
-  conversationId: string
+  conversationId: string,
+  messageId?: string
 ): Promise<string> {
+  // Try fetching the conversation thread
   const res = await fetch(
     `https://graph.microsoft.com/v1.0/me/messages?$filter=conversationId eq '${conversationId}'&$select=subject,from,body,receivedDateTime&$orderby=receivedDateTime desc&$top=10`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
 
-  if (!res.ok) return "(Could not load thread)";
+  // If thread fetch fails, try fetching just the single message
+  if (!res.ok) {
+    if (messageId) {
+      try {
+        const singleRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=subject,from,body,bodyPreview,receivedDateTime`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (singleRes.ok) {
+          const msg = await singleRes.json();
+          const body = msg.body?.content
+            ? convert(msg.body.content, { wordwrap: false }).substring(0, 800)
+            : msg.bodyPreview || "";
+          return `From: ${msg.from?.emailAddress?.address || "unknown"}\nDate: ${msg.receivedDateTime || ""}\nSubject: ${msg.subject}\n${body}`;
+        }
+      } catch {}
+    }
+    return "";
+  }
   const data = await res.json();
   const messages = data.value || [];
 
@@ -141,12 +161,15 @@ RULES:
 - Be actionable: if the email asks a question, answer it; if it requests something, confirm or delegate
 - If you cannot determine a factual answer, write a plausible placeholder marked with [PLACEHOLDER: what info is needed]
 - Do NOT include the quoted original email in your reply
+- Do NOT say you cannot access the email or ask for it to be forwarded — just draft the best reply you can with the information provided
 - Output ONLY the reply body text, no subject line
 - Keep it concise — most replies should be under 150 words${contextSection}`,
     messages: [
       {
         role: "user",
-        content: `FULL EMAIL THREAD (newest first):\n---\n${params.threadText}\n---\n\nDraft a reply to the most recent message from ${params.sender} about "${params.subject}".`,
+        content: params.threadText
+          ? `EMAIL THREAD (newest first):\n---\n${params.threadText}\n---\n\nDraft a reply to the most recent message from ${params.sender} about "${params.subject}".`
+          : `Draft a reply to an email from ${params.sender} with subject "${params.subject}". The email likely requires a response or acknowledgment. Write a professional reply based on the subject context.`,
       },
     ],
   });
@@ -190,7 +213,7 @@ export async function generateDraftForEmail(params: {
   // Run tone profile and thread fetch in parallel
   const [toneProfile, threadText] = await Promise.all([
     getOrCreateToneProfile(params.accessToken),
-    fetchEmailThread(params.accessToken, params.conversationId),
+    fetchEmailThread(params.accessToken, params.conversationId, params.messageId),
   ]);
 
   // RAG lookup for relevant docs
