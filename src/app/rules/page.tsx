@@ -8,14 +8,14 @@ export default async function RulesPage() {
   if (!isAuthorized(session.user?.email)) redirect("/access-denied");
 
   return (
-    <div className="min-h-screen bg-[#f7f7f9]">
+    <div className="min-h-screen bg-[var(--bg-app)]">
       <div className="max-w-3xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-medium text-[#1a1a2e]">Triage Rules</h1>
-            <p className="text-[13px] text-[#9898b0] mt-0.5">Auto-classify emails by sender, subject, or content</p>
+            <h1 className="text-xl font-medium text-[var(--text-primary)]">Triage Rules</h1>
+            <p className="text-[13px] text-[var(--text-muted)] mt-0.5">Auto-classify emails by sender, subject, or content</p>
           </div>
-          <a href="/" className="text-[13px] text-[#8090a8] hover:text-[#607088] font-medium transition-colors">
+          <a href="/" className="text-[13px] text-[var(--accent)] hover:text-[var(--accent-hover)] font-medium transition-colors">
             ← Back
           </a>
         </div>

@@ -1,51 +1,178 @@
 @import "tailwindcss";
 
-:root {
-  /* Midnight Ink & Aged Bronze — Three-layer surfaces */
-  --mi-deepest: #0c1014;
-  --mi-mid: #101418;
-  --mi-header: #0e1216;
+/* ========================================
+   SEMANTIC COLOR TOKENS (theme-switchable)
+   ======================================== */
+
+/* Default = dark (Midnight Ink & Aged Bronze) */
+:root,
+[data-theme="dark"] {
+  /* Surface layers — 3-tier dark system */
+  --bg-app: #080c10;
+  --bg-sidebar: #0a0e12;
+  --bg-list: #141a20;
+  --bg-reading: #181e24;
+  --bg-header: #10161c;
+  --bg-elevated: #12181e;
 
   /* Borders */
-  --mi-border-subtle: #181e22;
-  --mi-border-mid: #1c2226;
+  --border-subtle: #1e242a;
+  --border-mid: #2a3038;
 
   /* Accent — Aged Bronze */
-  --mi-bronze: #b48a46;
-  --mi-bronze-dark: #906830;
-  --mi-bronze-text-dark: #7a5e20;
+  --accent: #b48a46;
+  --accent-hover: #906830;
+  --accent-dark: #7a5e20;
+  --accent-tint-strong: rgba(180, 138, 70, 0.16);
+  --accent-tint-med: rgba(180, 138, 70, 0.12);
+  --accent-tint-soft: rgba(180, 138, 70, 0.07);
+  --accent-tint-subtle: rgba(180, 138, 70, 0.06);
 
   /* Text */
-  --mi-text-primary: #c8ccd0;
-  --mi-text-secondary: #8a9098;
-  --mi-text-muted: #505860;
+  --text-primary: #d0d4d8;
+  --text-body: #c0c4c8;
+  --text-secondary: #a0a8b0;
+  --text-tertiary: #8a9098;
+  --text-muted: #606870;
+  --text-faint: #404850;
+  --text-on-accent: #ffffff;
 
   /* Semantic */
-  --mi-success: #4a9868;
-  --mi-success-bg: #0a1c12;
-  --mi-danger: #b06050;
-  --mi-danger-bg: #1c0c0a;
-  --mi-warning: #a07840;
-  --mi-warning-bg: #1a1208;
+  --success: #4a9868;
+  --success-bg: #0a1c12;
+  --danger: #b06050;
+  --danger-bg: #1c0c0a;
+  --warning: #a07840;
+  --warning-bg: #1a1408;
+
+  /* Badges — neutral */
+  --badge-neutral-bg: rgba(255, 255, 255, 0.05);
+  --badge-neutral-text: #707880;
+
+  /* Checkbox */
+  --checkbox-border: #1e242a;
+  --checkbox-bg: #141a20;
+
+  /* Hover surfaces */
+  --hover-subtle: rgba(255, 255, 255, 0.03);
+  --hover-active: rgba(180, 138, 70, 0.08);
+
+  /* Focus / selection */
+  --focus-ring: rgba(180, 138, 70, 0.35);
+  --selection-bg: rgba(180, 138, 70, 0.25);
+
+  /* Scrollbar */
+  --scroll-thumb: #2a3038;
+  --scroll-thumb-hover: #b48a46;
 }
 
+/* Light theme — Pearl & Graphite */
+[data-theme="light"] {
+  /* Surface layers */
+  --bg-app: #f7f7f9;
+  --bg-sidebar: #12141a;        /* Keep sidebar dark for anchor/contrast */
+  --bg-list: #ffffff;
+  --bg-reading: #ffffff;
+  --bg-header: #eeeef2;
+  --bg-elevated: #f4f4f8;
+
+  /* Borders */
+  --border-subtle: #e0e0e8;
+  --border-mid: #cacad8;
+
+  /* Accent — Gold for CTAs, platinum for everything else */
+  --accent: #a88830;              /* Gold — primary CTA */
+  --accent-hover: #886810;
+  --accent-dark: #7a5e20;
+  --accent-tint-strong: rgba(168, 136, 48, 0.16);
+  --accent-tint-med: rgba(168, 136, 48, 0.12);
+  --accent-tint-soft: rgba(168, 136, 48, 0.07);
+  --accent-tint-subtle: rgba(168, 136, 48, 0.06);
+
+  /* Text */
+  --text-primary: #1a1a2e;
+  --text-body: #1a1a2e;
+  --text-secondary: #3a3a50;
+  --text-tertiary: #5a5a72;
+  --text-muted: #9898b0;
+  --text-faint: #cacad8;
+  --text-on-accent: #ffffff;
+
+  /* Semantic */
+  --success: #1e7a48;
+  --success-bg: #eaf5ee;
+  --danger: #9a2828;
+  --danger-bg: #faecec;
+  --warning: #8a5a10;
+  --warning-bg: #faf2e0;
+
+  /* Badges — neutral */
+  --badge-neutral-bg: #eeeef2;
+  --badge-neutral-text: #5a5a72;
+
+  /* Checkbox */
+  --checkbox-border: #cacad8;
+  --checkbox-bg: #ffffff;
+
+  /* Hover surfaces */
+  --hover-subtle: #f4f4f8;
+  --hover-active: #eef0f6;
+
+  /* Focus / selection */
+  --focus-ring: rgba(128, 144, 168, 0.30);
+  --selection-bg: rgba(128, 144, 168, 0.20);
+
+  /* Scrollbar */
+  --scroll-thumb: #cacad8;
+  --scroll-thumb-hover: #8090a8;
+}
+
+/* ========================================
+   SIDEBAR — always dark for anchor/contrast
+   ======================================== */
+[data-theme="light"] .sidebar-anchor {
+  /* In light mode, keep sidebar dark but use platinum accents inside */
+  --sidebar-text: #e8eaf0;
+  --sidebar-text-muted: rgba(232, 234, 240, 0.45);
+  --sidebar-accent: #8090a8;   /* Platinum */
+  --sidebar-accent-tint: rgba(128, 144, 168, 0.12);
+  --sidebar-accent-tint-strong: rgba(128, 144, 168, 0.18);
+  --sidebar-divider: rgba(255, 255, 255, 0.07);
+  --sidebar-hover: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .sidebar-anchor,
+:root .sidebar-anchor {
+  --sidebar-text: #d0d4d8;
+  --sidebar-text-muted: #606870;
+  --sidebar-accent: #b48a46;
+  --sidebar-accent-tint: rgba(180, 138, 70, 0.12);
+  --sidebar-accent-tint-strong: rgba(180, 138, 70, 0.18);
+  --sidebar-divider: #1e242a;
+  --sidebar-hover: rgba(255, 255, 255, 0.03);
+}
+
+/* ========================================
+   GLOBAL STYLES
+   ======================================== */
+
 @theme inline {
-  --color-background: var(--mi-deepest);
-  --color-foreground: var(--mi-text-primary);
+  --color-background: var(--bg-app);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-body {
-  background: var(--mi-deepest);
-  color: var(--mi-text-primary);
+html, body {
+  background: var(--bg-app);
+  color: var(--text-primary);
   font-family: "Inter", "DM Sans", system-ui, sans-serif;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1c2226; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #b48a46; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
-*:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(180, 138, 70, 0.35); }
-::selection { background: rgba(180, 138, 70, 0.25); color: #c8ccd0; }
+*:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus-ring); }
+::selection { background: var(--selection-bg); color: var(--text-primary); }

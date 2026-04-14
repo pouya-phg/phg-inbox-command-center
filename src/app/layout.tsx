@@ -11,10 +11,24 @@ export const metadata: Metadata = {
   description: "AI-powered email triage for Outlook",
 };
 
+// Pre-hydration script — sets data-theme before React mounts to prevent flash
+const themeScript = `
+(function(){try{
+  var t = localStorage.getItem('phg-theme');
+  if(t !== 'dark' && t !== 'light'){
+    t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', t);
+}catch(e){ document.documentElement.setAttribute('data-theme','dark'); }})();
+`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="h-full bg-[#0c1014] text-[#c8ccd0]">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="h-full bg-[var(--bg-app)] text-[var(--text-primary)]">
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

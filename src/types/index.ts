@@ -55,22 +55,22 @@ export const PRIORITY_CONFIG: Record<
 > = {
   p1: {
     label: "Needs Action",
-    textStyle: "text-[#b48a46]",
-    badgeStyle: "bg-[rgba(180,138,70,0.16)] text-[#b48a46]",
+    textStyle: "text-[var(--accent)]",
+    badgeStyle: "bg-[var(--accent-tint-strong)] text-[var(--accent)]",
   },
   p2: {
     label: "High Priority",
-    textStyle: "text-[#a07840]",
-    badgeStyle: "bg-[#1a1208] text-[#a07840]",
+    textStyle: "text-[var(--warning)]",
+    badgeStyle: "bg-[var(--warning-bg)] text-[var(--warning)]",
   },
   p3: {
     label: "Informational",
-    textStyle: "text-[#707880]",
-    badgeStyle: "bg-[rgba(255,255,255,0.05)] text-[#707880]",
+    textStyle: "text-[var(--text-tertiary)]",
+    badgeStyle: "bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-text)]",
   },
   noise: {
     label: "Noise",
-    textStyle: "text-[#505860]",
-    badgeStyle: "bg-[rgba(255,255,255,0.04)] text-[#505860]",
+    textStyle: "text-[var(--text-muted)]",
+    badgeStyle: "bg-[var(--badge-neutral-bg)] text-[var(--text-muted)]",
   },
 };
