@@ -16,11 +16,10 @@ export async function GET(
     return NextResponse.json({ error: "No access token" }, { status: 401 });
   }
 
+  // Fetch the main email
   const res = await fetch(
     `https://graph.microsoft.com/v1.0/me/messages/${id}?$select=id,subject,bodyPreview,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments,isRead,webLink,conversationId`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }
+    { headers: { Authorization: `Bearer ${accessToken}` } }
   );
 
   if (!res.ok) {
@@ -32,5 +31,23 @@ export async function GET(
   }
 
   const email = await res.json();
-  return NextResponse.json(email);
+
+  // Fetch the full conversation thread (up to 20 messages)
+  let thread: any[] = [];
+  if (email.conversationId) {
+    try {
+      const threadRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages?$filter=conversationId eq '${email.conversationId}'&$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments,isRead&$orderby=receivedDateTime desc&$top=20`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (threadRes.ok) {
+        const threadData = await threadRes.json();
+        thread = threadData.value || [];
+      }
+    } catch {
+      // Thread fetch is optional — don't fail the whole request
+    }
+  }
+
+  return NextResponse.json({ ...email, thread });
 }

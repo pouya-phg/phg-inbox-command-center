@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
-import { ExternalLink, Reply, ReplyAll, Forward, Send, Paperclip, CheckCircle, Loader2, Inbox, FileText, Image as ImageIcon, FileSpreadsheet, File, ImageOff, Sparkles, RotateCw, Trash2 } from "lucide-react";
+import { ExternalLink, Reply, ReplyAll, Forward, Send, Paperclip, CheckCircle, Loader2, Inbox, FileText, Image as ImageIcon, FileSpreadsheet, File, ImageOff, Sparkles, RotateCw, Trash2, ChevronDown, ChevronRight, User } from "lucide-react";
 import type { Priority, DraftReply } from "@/types";
 import { PRIORITY_CONFIG } from "@/types";
 
@@ -46,6 +46,9 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [imagesBlocked, setImagesBlocked] = useState(false);
   const [showImages, setShowImages] = useState(false);
+  const [thread, setThread] = useState<GraphEmail[]>([]);
+  const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(new Set());
+  const [signature, setSignature] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftReply | null>(null);
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftGenerating, setDraftGenerating] = useState(false);
@@ -65,9 +68,27 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => { if (messageId) { fetchEmail(messageId); fetchDraft(messageId); resetCompose(); setAttachments([]); setShowImages(false); setImagesBlocked(false); setDraftSent(false); } else { setEmail(null); setAttachments([]); setDraft(null); } }, [messageId]);
+  useEffect(() => {
+    if (messageId) {
+      fetchEmail(messageId); fetchDraft(messageId); resetCompose();
+      setAttachments([]); setShowImages(false); setImagesBlocked(false);
+      setDraftSent(false); setThread([]); setExpandedThreadIds(new Set());
+    } else { setEmail(null); setAttachments([]); setDraft(null); setThread([]); }
+  }, [messageId]);
+
+  // Fetch signature once on mount
+  useEffect(() => {
+    fetch("/api/signature").then(r => r.json()).then(d => { if (d.signature) setSignature(d.signature); }).catch(() => {});
+  }, []);
   useEffect(() => { if (composeMode && composeRef.current) composeRef.current.focus(); }, [composeMode]);
   function resetCompose() { setComposeMode(null); setComposeText(""); setForwardTo(""); setSent(false); }
+
+  function startCompose(mode: ComposeMode) {
+    setComposeMode(mode);
+    // Don't pre-fill signature in text — we'll append it server-side when sending
+    // This keeps the compose area clean for the user
+    setComposeText("");
+  }
 
   async function fetchDraft(id: string) {
     setDraftLoading(true);
@@ -150,8 +171,23 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
       if (!data.isRead) onMarkRead(id);
       if (data.body?.content && hasExtImages(data.body.content)) { setImagesBlocked(true); setShowImages(false); } else { setImagesBlocked(false); setShowImages(true); }
       if (data.hasAttachments) { const r = await fetch(`/api/emails/${id}/attachments`); if (r.ok) { const d = await r.json(); setAttachments(d.attachments || []); } }
+      // Set thread (excluding the current message)
+      if (data.thread && data.thread.length > 1) {
+        setThread(data.thread.filter((m: GraphEmail) => m.id !== id));
+      } else {
+        setThread([]);
+      }
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setLoading(false);
+  }
+
+  function toggleThreadMessage(id: string) {
+    setExpandedThreadIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   async function handleSend() {
@@ -319,24 +355,95 @@ export default function EmailPanel({ messageId, priority, summary, onMarkRead }:
             </div>
           )}
 
-          {/* Body */}
+          {/* Body + Thread */}
           <div className="flex-1 overflow-y-auto bg-[var(--bg-reading)]">
-            <iframe srcDoc={styled} className="w-full h-full border-0" sandbox="allow-same-origin" title="Email" style={{ minHeight: "300px" }} />
+            {/* Current message body */}
+            <iframe srcDoc={styled} className="w-full border-0" sandbox="allow-same-origin" title="Email" style={{ minHeight: "250px", height: thread.length > 0 ? "250px" : "100%" }} />
+
+            {/* Thread history */}
+            {thread.length > 0 && (
+              <div className="border-t-[0.5px] border-[var(--border-subtle)]">
+                <div className="px-5 py-2 bg-[var(--bg-elevated)]">
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-[0.08em]">
+                    {thread.length} earlier message{thread.length > 1 ? "s" : ""} in this thread
+                  </p>
+                </div>
+                {thread.map((msg) => {
+                  const isExpanded = expandedThreadIds.has(msg.id);
+                  const fromMe = msg.from?.emailAddress?.address?.toLowerCase() === "phonari@pacifichospitality.com";
+                  const msgBody = msg.body?.content || "";
+                  const msgStyled = msgBody ? `<style>
+                    * { color: ${iframeColors.text} !important; background: transparent !important; font-family: system-ui, -apple-system, sans-serif !important; }
+                    body { margin: 0; padding: 16px; font-size: 13px; line-height: 1.6; }
+                    a { color: ${iframeColors.link} !important; text-decoration: underline; }
+                    img { max-width: 100%; height: auto; }
+                    blockquote { border-left: 2px solid ${iframeColors.border} !important; padding-left: 10px; margin-left: 0; color: ${iframeColors.quote} !important; }
+                  </style>${showImages ? msgBody : blockImgs(msgBody)}` : "";
+
+                  return (
+                    <div key={msg.id} className="border-t-[0.5px] border-[var(--border-subtle)]">
+                      {/* Thread message header — clickable to expand */}
+                      <button
+                        onClick={() => toggleThreadMessage(msg.id)}
+                        className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-[var(--hover-subtle)] transition-colors"
+                      >
+                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />}
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${fromMe ? "bg-[var(--accent-tint-strong)]" : "bg-[var(--hover-active)]"}`}>
+                          <span className={`text-[9px] font-medium ${fromMe ? "text-[var(--accent)]" : "text-[var(--text-tertiary)]"}`}>
+                            {msg.from?.emailAddress?.name?.[0]?.toUpperCase() || "?"}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[12px] font-medium ${fromMe ? "text-[var(--accent)]" : "text-[var(--text-primary)]"}`}>
+                              {fromMe ? "You" : msg.from?.emailAddress?.name || msg.from?.emailAddress?.address}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-muted)]">
+                              {format(new Date(msg.receivedDateTime), "MMM d 'at' h:mm a")}
+                            </span>
+                          </div>
+                          {!isExpanded && (
+                            <p className="text-[11px] text-[var(--text-muted)] truncate">
+                              {msg.body?.content?.replace(/<[^>]+>/g, "").substring(0, 120) || "(No content)"}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                      {/* Expanded body */}
+                      {isExpanded && (
+                        <div className="px-5 pb-3">
+                          <div className="text-[11px] text-[var(--text-muted)] mb-2">
+                            To: {(msg.toRecipients || []).map(r => r.emailAddress?.name || r.emailAddress?.address).join(", ")}
+                          </div>
+                          <iframe
+                            srcDoc={msgStyled}
+                            className="w-full border-0 rounded"
+                            sandbox="allow-same-origin"
+                            title={`Thread message from ${msg.from?.emailAddress?.name}`}
+                            style={{ minHeight: "150px", height: "200px" }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Actions */}
           <div className="border-t-[0.5px] border-[var(--border-subtle)] shrink-0 bg-[var(--bg-header)]">
             {!composeMode ? (
               <div className="flex items-center gap-2 px-6 py-3">
-                <button onClick={() => setComposeMode("reply")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--accent)] text-white text-[13px] font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors">
+                <button onClick={() => startCompose("reply")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--accent)] text-white text-[13px] font-medium rounded-md hover:bg-[var(--accent-hover)] transition-colors">
                   <Reply className="w-4 h-4" /> Reply
                 </button>
                 {(email.toRecipients.length > 1 || (email.ccRecipients?.length ?? 0) > 0) && (
-                  <button onClick={() => setComposeMode("replyAll")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--hover-subtle)] text-[var(--text-tertiary)] text-[13px] font-medium rounded-md border-[0.5px] border-[var(--border-mid)] hover:text-[var(--text-primary)] transition-colors">
+                  <button onClick={() => startCompose("replyAll")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--hover-subtle)] text-[var(--text-tertiary)] text-[13px] font-medium rounded-md border-[0.5px] border-[var(--border-mid)] hover:text-[var(--text-primary)] transition-colors">
                     <ReplyAll className="w-4 h-4" /> Reply All
                   </button>
                 )}
-                <button onClick={() => setComposeMode("forward")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--hover-subtle)] text-[var(--text-tertiary)] text-[13px] font-medium rounded-md border-[0.5px] border-[var(--border-mid)] hover:text-[var(--text-primary)] transition-colors">
+                <button onClick={() => startCompose("forward")} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--hover-subtle)] text-[var(--text-tertiary)] text-[13px] font-medium rounded-md border-[0.5px] border-[var(--border-mid)] hover:text-[var(--text-primary)] transition-colors">
                   <Forward className="w-4 h-4" /> Forward
                 </button>
               </div>
