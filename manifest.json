@@ -5,9 +5,9 @@
   "id": "7f99a2f3-a24b-4c3e-8cb1-f3ee341f7c4b",
   "developer": {
     "name": "Pacific Hospitality Group",
-    "websiteUrl": "https://phg-inbox-command-center.vercel.app",
-    "privacyUrl": "https://phg-inbox-command-center.vercel.app",
-    "termsOfUseUrl": "https://phg-inbox-command-center.vercel.app"
+    "websiteUrl": "https://phg-chief-of-staff.vercel.app",
+    "privacyUrl": "https://phg-chief-of-staff.vercel.app",
+    "termsOfUseUrl": "https://phg-chief-of-staff.vercel.app"
   },
   "name": {
     "short": "PHG Inbox AI",
@@ -39,7 +39,7 @@
           "id": "TaskPaneRuntime",
           "type": "general",
           "code": {
-            "page": "https://phg-inbox-command-center.vercel.app/outlook-addon"
+            "page": "https://phg-chief-of-staff.vercel.app/outlook-addon"
           }
         }
       ],
@@ -54,9 +54,9 @@
                   "id": "phgGroup",
                   "label": "PHG AI",
                   "icons": [
-                    { "size": 16, "url": "https://phg-inbox-command-center.vercel.app/icon-16.png" },
-                    { "size": 32, "url": "https://phg-inbox-command-center.vercel.app/icon-32.png" },
-                    { "size": 80, "url": "https://phg-inbox-command-center.vercel.app/icon-80.png" }
+                    { "size": 16, "url": "https://phg-chief-of-staff.vercel.app/icon-16.png" },
+                    { "size": 32, "url": "https://phg-chief-of-staff.vercel.app/icon-32.png" },
+                    { "size": 80, "url": "https://phg-chief-of-staff.vercel.app/icon-80.png" }
                   ],
                   "controls": [
                     {
@@ -64,9 +64,9 @@
                       "type": "button",
                       "label": "AI Triage",
                       "icons": [
-                        { "size": 16, "url": "https://phg-inbox-command-center.vercel.app/icon-16.png" },
-                        { "size": 32, "url": "https://phg-inbox-command-center.vercel.app/icon-32.png" },
-                        { "size": 80, "url": "https://phg-inbox-command-center.vercel.app/icon-80.png" }
+                        { "size": 16, "url": "https://phg-chief-of-staff.vercel.app/icon-16.png" },
+                        { "size": 32, "url": "https://phg-chief-of-staff.vercel.app/icon-32.png" },
+                        { "size": 80, "url": "https://phg-chief-of-staff.vercel.app/icon-80.png" }
                       ],
                       "supertip": {
                         "title": "PHG AI Triage",

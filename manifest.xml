@@ -11,12 +11,12 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="PHG Inbox AI"/>
   <Description DefaultValue="AI-powered email triage — priority classification, summaries, and draft replies"/>
-  <IconUrl DefaultValue="https://phg-inbox-command-center.vercel.app/icon-64.png"/>
-  <HighResolutionIconUrl DefaultValue="https://phg-inbox-command-center.vercel.app/icon-128.png"/>
-  <SupportUrl DefaultValue="https://phg-inbox-command-center.vercel.app"/>
+  <IconUrl DefaultValue="https://phg-chief-of-staff.vercel.app/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://phg-chief-of-staff.vercel.app/icon-128.png"/>
+  <SupportUrl DefaultValue="https://phg-chief-of-staff.vercel.app"/>
 
   <AppDomains>
-    <AppDomain>https://phg-inbox-command-center.vercel.app</AppDomain>
+    <AppDomain>https://phg-chief-of-staff.vercel.app</AppDomain>
   </AppDomains>
 
   <Hosts>
@@ -32,7 +32,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
+        <SourceLocation DefaultValue="https://phg-chief-of-staff.vercel.app/outlook-addon"/>
         <RequestedHeight>450</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -82,12 +82,12 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="icon16" DefaultValue="https://phg-inbox-command-center.vercel.app/icon-16.png"/>
-        <bt:Image id="icon32" DefaultValue="https://phg-inbox-command-center.vercel.app/icon-32.png"/>
-        <bt:Image id="icon80" DefaultValue="https://phg-inbox-command-center.vercel.app/icon-80.png"/>
+        <bt:Image id="icon16" DefaultValue="https://phg-chief-of-staff.vercel.app/icon-16.png"/>
+        <bt:Image id="icon32" DefaultValue="https://phg-chief-of-staff.vercel.app/icon-32.png"/>
+        <bt:Image id="icon80" DefaultValue="https://phg-chief-of-staff.vercel.app/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="taskpaneUrl" DefaultValue="https://phg-inbox-command-center.vercel.app/outlook-addon"/>
+        <bt:Url id="taskpaneUrl" DefaultValue="https://phg-chief-of-staff.vercel.app/outlook-addon"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="groupLabel" DefaultValue="PHG AI"/>
