@@ -6,8 +6,8 @@ import { generateDraftForEmail } from "@/lib/draft-helpers";
 
 export const maxDuration = 300;
 
-export async function POST(req: Request) {
-  if (!(await isAuthenticated(req))) {
+export async function POST() {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const accessToken = await getGraphAccessToken();

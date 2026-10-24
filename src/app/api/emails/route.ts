@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import type { Priority } from "@/types";
 
 export async function GET(req: NextRequest) {
-  if (!(await isAuthenticated(req))) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

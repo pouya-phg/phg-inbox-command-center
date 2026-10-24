@@ -7,7 +7,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ emailId: string }> }
 ) {
-  if (!(await isAuthenticated(req))) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const session = await getAuthSession();
@@ -33,7 +33,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ emailId: string }> }
 ) {
-  if (!(await isAuthenticated(req))) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const session = await getAuthSession();
@@ -62,7 +62,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ emailId: string }> }
 ) {
-  if (!(await isAuthenticated(req))) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const session = await getAuthSession();
