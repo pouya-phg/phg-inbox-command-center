@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Sparkles, Copy, CheckCircle, RotateCw, Trash2, Loader2, ExternalLink, Inbox, AlertCircle, Bell, VolumeX, Mail, ChevronDown, ChevronRight } from "lucide-react";
 
 type Priority = "p1" | "p2" | "p3" | "noise";
@@ -17,12 +18,8 @@ interface EmailData {
 }
 
 const API_BASE = "";
-const ADDON_KEY = process.env.NEXT_PUBLIC_ADDON_API_KEY || "";
-
 function addonFetch(path: string, opts: RequestInit = {}) {
-  const headers = new Headers(opts.headers);
-  headers.set("x-addon-key", ADDON_KEY);
-  return fetch(`${API_BASE}${path}`, { ...opts, headers });
+  return fetch(`${API_BASE}${path}`, { ...opts, credentials: "same-origin" });
 }
 
 const P_CONFIG: Record<Priority, { label: string; icon: any; color: string; bg: string }> = {
@@ -157,6 +154,7 @@ function InlineDraft({ messageId, email, onClose }: { messageId: string; email: 
 }
 
 export default function OutlookAddonPage() {
+  const { status: authStatus } = useSession();
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
   const [counts, setCounts] = useState<Record<Priority, number>>({ p1: 0, p2: 0, p3: 0, noise: 0 });
@@ -212,6 +210,7 @@ export default function OutlookAddonPage() {
   }, []);
 
   useEffect(() => {
+    if (authStatus !== "authenticated") return;
     const initOffice = () => {
       const Office = (window as any).Office;
       if (Office) {
@@ -234,7 +233,7 @@ export default function OutlookAddonPage() {
     let attempts = 0;
     const check = () => { attempts++; if ((window as any).Office) initOffice(); else if (attempts < 20) setTimeout(check, 500); else { setReady(true); fetchOverview(); } };
     check();
-  }, [fetchOverview, lookupSelected]);
+  }, [fetchOverview, lookupSelected, authStatus]);
 
   function toggleDraft(messageId: string) {
     setExpandedDrafts(prev => {
@@ -268,7 +267,19 @@ export default function OutlookAddonPage() {
   const border = "#e0e0e8"; const accent = "#a88830"; const accentHover = "#886810";
   const textP = "#1a1a2e"; const textS = "#5a5a72"; const textM = "#9898b0";
 
-  if (!ready) {
+  if (authStatus === "unauthenticated") {
+    return (
+      <main style={{ minHeight: "100vh", padding: 24, background: bg, color: textP, fontFamily: "system-ui, sans-serif" }}>
+        <h1 style={{ fontSize: 20 }}>Sign in to Inbox</h1>
+        <p>Sign in with your authorized PHG account to read emails and work with drafts.</p>
+        <a href="/auth/signin" target="_blank" rel="noopener noreferrer">Open Inbox to sign in</a>
+        <p>After signing in, reload this add-in. If Outlook blocks sign-in cookies, use Inbox in your browser.</p>
+        <button type="button" onClick={() => window.location.reload()}>Reload add-in</button>
+      </main>
+    );
+  }
+
+  if (authStatus === "loading" || !ready) {
     return (
       <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: bg }}>
         <Loader2 size={20} color={accent} style={{ animation: "spin 1s linear infinite" }} />

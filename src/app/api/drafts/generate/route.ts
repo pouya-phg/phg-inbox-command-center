@@ -7,7 +7,7 @@ import { generateDraftForEmail } from "@/lib/draft-helpers";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  if (!(await isAuthenticated(req))) {
+  if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
